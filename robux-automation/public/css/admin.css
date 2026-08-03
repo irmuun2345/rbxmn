@@ -1,0 +1,255 @@
+/* ============================================================
+   Admin dashboard: shell, stat strip, editable lists, orders table and the
+   <dialog> that replaces window.prompt/confirm.
+   ============================================================ */
+
+/* ============================================================
+   Admin
+   ============================================================ */
+
+.admin-shell {
+  padding: 2.6rem 0 5rem;
+}
+
+.admin-heading {
+  display: flex;
+  margin-bottom: 1.8rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Separates the configuration half of the admin page from the queue above
+   it, which is otherwise just more panels in the same stack. */
+.admin-subheading {
+  margin-top: 3rem;
+  padding-top: 1.8rem;
+  border-top: 1px solid var(--border);
+}
+
+.stat-strip {
+  display: grid;
+  margin-bottom: 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.stat {
+  padding: 0.9rem 1rem;
+}
+
+.stat + .stat {
+  border-left: 1px solid var(--border);
+}
+
+.stat span {
+  display: block;
+  color: var(--faint);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stat strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--gold);
+  font-family: var(--display);
+  font-size: 1.25rem;
+}
+
+.price-editor-grid {
+  display: grid;
+  margin-bottom: 1.2rem;
+  gap: 1.1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+}
+
+.price-preview {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.price-input {
+  position: relative;
+}
+
+.price-input span {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.7rem;
+  color: var(--faint);
+  font-size: 0.82rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.price-input input {
+  padding-right: 3.2rem;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+details.stub-toggle {
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+details.stub-toggle summary {
+  display: flex;
+  padding: 0.9rem 1.1rem;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+details.stub-toggle summary::-webkit-details-marker {
+  display: none;
+}
+
+details.stub-toggle summary::after {
+  color: var(--faint);
+  content: "+";
+  font-size: 1.1rem;
+}
+
+details[open].stub-toggle summary::after {
+  content: "\2212";
+}
+
+.details-body {
+  border-top: 1px solid var(--border);
+  padding: 1.1rem;
+}
+
+.ledger-section {
+  margin-top: 1.2rem;
+}
+
+/* .editable-list / .editable-row live in lists.css — the storefront renders
+   its gift cards and event deals with the same rows. */
+
+.inline-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.7rem;
+  align-items: end;
+}
+
+/* ============================================================
+   Table (admin orders)
+   ============================================================ */
+
+.table-container {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 0.75rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+th {
+  color: var(--faint);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+td {
+  font-size: 0.86rem;
+}
+
+td small {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--faint);
+  font-size: 0.72rem;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* .ref-code lives in lists.css — the storefront shows the same payment
+   reference badge on its order and gift-card panels. */
+
+.empty-cell {
+  padding: 2.2rem;
+  color: var(--faint);
+  text-align: center;
+}
+
+/* ============================================================
+   Admin dialog
+   ============================================================ */
+
+/* Replaces window.prompt/confirm, which rendered unstyled OS chrome, could
+   not validate or explain anything, and blocks the whole page — including the
+   admin queue polling behind it. <dialog> gives focus trapping, Esc-to-close
+   and inertness for free. */
+.app-dialog {
+  width: min(440px, calc(100% - 2rem));
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--bg-soft);
+}
+
+.app-dialog::backdrop {
+  background: rgba(6, 6, 7, 0.72);
+}
+
+.app-dialog-body {
+  padding: 1.4rem;
+}
+
+.app-dialog h2 {
+  margin-bottom: 0.4rem;
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.app-dialog-message {
+  margin-bottom: 1rem;
+  color: var(--dim);
+  font-size: 0.88rem;
+}
+
+.app-dialog-actions {
+  display: flex;
+  margin-top: 1.2rem;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.app-dialog-actions .btn {
+  flex: 1 1 auto;
+}

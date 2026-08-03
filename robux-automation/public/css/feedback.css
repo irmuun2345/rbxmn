@@ -1,0 +1,192 @@
+/* ============================================================
+   Notices, badges, hints and the small status affordances that report the
+   result of an action.
+   ============================================================ */
+
+/* ---------- notices / badges ---------- */
+
+.notice {
+  margin: 0.9rem 0 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  color: var(--gold);
+  background: var(--positive-bg);
+  font-size: 0.86rem;
+}
+
+.notice.error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: rgba(178, 88, 80, 0.35);
+}
+
+.notice a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--radius-sm);
+  padding: 0.32rem 0.65rem;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.badge-pending {
+  color: var(--gold);
+  border-color: var(--border-strong);
+}
+
+.badge-active {
+  color: var(--gold);
+  background: var(--positive-bg);
+  border-color: var(--border-strong);
+}
+
+/* Rejected payments and failed fulfilments — the two states a buyer or
+   admin has to actually act on, so they get the one non-gold accent. */
+.badge-danger {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: rgba(178, 88, 80, 0.32);
+}
+
+.reject-reason {
+  display: block;
+  margin-top: 4px;
+  color: var(--danger);
+  font-style: italic;
+}
+
+/* Receipt thumbnails in the admin review queue. Fixed box so a portrait
+   phone photo and a landscape screenshot don't shuffle the row heights. */
+.receipt-thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-soft);
+}
+
+.receipt-thumb-pdf {
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--gold);
+}
+
+.receipt-link:hover .receipt-thumb {
+  border-color: var(--border-strong);
+}
+
+/* Audit trail. Money-moving and access-changing entries get a left rule so
+   they're findable by eye in a long, mostly-routine list. */
+.audit-row.is-critical {
+  border-left: 2px solid var(--gold-deep);
+  padding-left: 0.6rem;
+}
+
+/* Stuck deliveries. The one thing on this page that means real money may be
+   in an unknown state, so it doesn't share the gold palette. */
+.stalled-section {
+  border-color: rgba(178, 88, 80, 0.4);
+  background: var(--danger-bg);
+}
+
+.stalled-section .h3 {
+  color: var(--danger);
+}
+
+/* Paired settings that belong side by side — a rate and its cap, a toggle
+   and the field it governs. Collapses to one column on narrow screens. */
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0 1rem;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.checkbox-row input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--gold-deep);
+}
+
+/* Referral code rows carry more controls than the other editable lists, so
+   they wrap rather than squeezing everything onto one line. */
+.referral-row.is-influencer {
+  border-left: 2px solid var(--gold-deep);
+  padding-left: 0.6rem;
+}
+
+.referral-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.mini-input {
+  width: 8.5rem;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.referral-balance strong {
+  color: var(--gold);
+}
+
+/* Live availability feedback while choosing a referral code. */
+.hint-ok {
+  color: var(--gold);
+}
+
+.hint-bad {
+  color: var(--danger);
+}
+
+.audit-details {
+  display: block;
+  margin-top: 0.25rem;
+  overflow-x: auto;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.dot-live {
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}

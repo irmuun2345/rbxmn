@@ -1,0 +1,212 @@
+/* ============================================================
+   Buttons, form fields and the file picker — the interactive primitives.
+   ============================================================ */
+
+/* ---------- buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  min-height: 44px;
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--radius-sm);
+  padding: 0.62rem 1.2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--gold);
+  background: var(--bg-soft);
+  font-family: var(--display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.btn:hover {
+  color: #f1e6cf;
+  background: #1a1a1d;
+  border-color: var(--gold);
+}
+
+.btn:active {
+  background: #0f0f11;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Every button on this site used to be an outline on near-black, which left
+   no visual answer to "what do I click?" on a page whose whole job is to take
+   an order. Exactly one filled button per panel — the action that advances
+   the purchase — and everything else stays quiet. */
+.btn-primary {
+  color: #17140e;
+  background: linear-gradient(180deg, #d4b47c, var(--gold));
+  border-color: var(--gold);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset,
+              0 10px 24px -14px rgba(195, 162, 106, 0.75);
+}
+
+.btn-primary:hover {
+  color: #17140e;
+  background: linear-gradient(180deg, #e0c48f, #cfae76);
+  border-color: #e0c48f;
+}
+
+.btn-primary:active {
+  background: var(--gold-deep);
+}
+
+/* Kept clickable on purpose. A greyed-out control states that something is
+   wrong without saying what, and cannot be focused or read by a screen
+   reader; this stays reachable and the handler explains the blocker. */
+.btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-ghost {
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+  color: var(--gold);
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.btn-danger {
+  color: var(--danger);
+  background: transparent;
+  border: 1px solid rgba(178, 88, 80, 0.4);
+}
+
+.btn-danger:hover {
+  background: var(--danger-bg);
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+/* ---------- form fields ---------- */
+
+.field {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--dim);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+input, textarea, select {
+  width: 100%;
+  /* Matches the 44px on .btn — inputs were landing at ~41px, so tapping a
+     field was measurably harder than tapping a button beside it. */
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.62rem 0.8rem;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 150ms ease;
+}
+
+textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--faint);
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--gold-deep);
+  outline: 0;
+}
+
+select option {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.field-spaced {
+  margin-top: 1rem;
+}
+
+/* ---------- file picker ---------- */
+
+/* The native control renders an OS-coloured "Choose File" button that cannot
+   be restyled, so it sat as a white block in the middle of the dark payment
+   panel. The input is visually hidden but kept in the accessibility tree and
+   in the tab order — never display:none, which would take it out of both —
+   and the <label> becomes the visible button. */
+.file-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.file-button {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 1rem;
+  margin: 0;
+  color: var(--gold);
+  background: rgba(255, 255, 255, 0.015);
+  font-family: var(--display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.file-button:hover {
+  border-color: var(--gold);
+  background: var(--positive-bg);
+}
+
+/* The input is off-screen, so its focus ring would be invisible — mirror it
+   onto the label the user can actually see. */
+.file-input:focus-visible + .file-button {
+  outline: 1px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.file-name {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}

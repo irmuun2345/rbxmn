@@ -1,0 +1,225 @@
+/* ============================================================
+   Fulfilment route banner, the order stepper and copyable payment rows.
+   ============================================================ */
+
+/* ============================================================
+   Method tabs + stepper
+   ============================================================ */
+
+/* The fulfilment route is decided server-side from group eligibility, so it
+   reads as a stated fact with a progress meter, not a pair of tabs. */
+.route-banner {
+  margin-bottom: 1.1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.route-banner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.route-label {
+  color: var(--dim);
+  font-family: var(--display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.route-progress {
+  margin-top: 0.7rem;
+}
+
+.route-progress-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.route-progress-bar > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--gold-deep);
+  transition: width 300ms ease;
+}
+
+.route-progress small {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+/* The way off the Game Pass route. A buyer sent down it was previously shown
+   a countdown with no way to act on it — the group link lived inside the
+   group-route markup, which is hidden precisely when this banner is showing.
+   So the one thing that would end the waiting was invisible to the only
+   people who needed it. */
+.route-unlock {
+  margin-top: 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.route-unlock-copy {
+  margin: 0 0 0.7rem;
+  color: var(--dim);
+  font-size: 0.84rem;
+}
+
+.route-unlock-copy strong {
+  color: var(--gold);
+}
+
+.route-unlock-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.route-unlock-actions .btn {
+  flex: 1 1 auto;
+}
+
+/* ---------- copyable value rows ---------- */
+
+/* Bank details used to be plain text with no copy affordance, leaving the
+   account number — the single most transcription-error-prone value in the
+   whole flow — to be retyped by hand into a banking app. */
+.copy-row {
+  display: grid;
+  margin: 0.5rem 0 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.copy-row > span {
+  color: var(--dim);
+  font-size: 0.86rem;
+}
+
+.copy-row > strong {
+  grid-column: 1;
+  color: var(--text);
+  font-family: var(--mono);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.copy-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--dim);
+  background: transparent;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.copy-btn:hover {
+  color: var(--gold);
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.copy-btn.is-copied {
+  color: var(--gold);
+  border-color: var(--border-strong);
+  background: var(--positive-bg);
+}
+
+.stepper {
+  display: flex;
+  margin: 1.2rem 0;
+  gap: 0;
+}
+
+.stepper-item {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.stepper-item::before {
+  position: absolute;
+  top: 15px;
+  right: -50%;
+  left: 50%;
+  z-index: 0;
+  height: 1px;
+  background: var(--border);
+  content: "";
+}
+
+.stepper-item:last-child::before {
+  display: none;
+}
+
+.stepper-item.is-done::before {
+  background: var(--gold-deep);
+}
+
+.stepper-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg-soft);
+  place-items: center;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  font-weight: 700;
+  transition: border-color 250ms ease, background 250ms ease, color 250ms ease;
+}
+
+.stepper-item.is-active .stepper-dot {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.stepper-item.is-done .stepper-dot {
+  border-color: var(--gold-deep);
+  background: var(--positive-bg);
+  color: var(--gold);
+}
+
+.stepper-item span.label {
+  max-width: 90px;
+  color: var(--faint);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.stepper-item.is-active span.label,
+.stepper-item.is-done span.label {
+  color: var(--dim);
+}

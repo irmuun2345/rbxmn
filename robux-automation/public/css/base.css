@@ -1,0 +1,105 @@
+/* ============================================================
+   Ambient background, scroll-reveal states and typographic helpers.
+   ============================================================ */
+
+/* ---------- ambient depth (static, no motion) ---------- */
+
+.bg-blobs {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(201, 168, 106, 0.07), transparent),
+    radial-gradient(ellipse 70% 50% at 100% 28%, rgba(122, 46, 52, 0.07), transparent),
+    radial-gradient(ellipse 60% 45% at 0% 68%, rgba(201, 168, 106, 0.05), transparent),
+    radial-gradient(ellipse 70% 40% at 100% 100%, rgba(122, 46, 52, 0.06), transparent);
+}
+
+.bg-blobs span {
+  display: none;
+}
+
+/* ---------- scroll reveal ---------- */
+
+/* Gated behind `.js`, which an inline script in <head> adds. Unconditional
+   `opacity: 0` here meant a blocked or broken app.js left the entire
+   storefront as a blank charcoal page — the animation is a nicety and must
+   never be load-bearing for content being visible at all. The same inline
+   script also force-reveals on a timer as a second net. */
+.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 700ms ease, transform 700ms ease;
+}
+
+.js [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- type helpers ---------- */
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 0.5rem;
+  color: var(--gold-deep);
+  font-family: var(--body);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.h1 {
+  margin-bottom: 1.1rem;
+  font-family: var(--display);
+  font-size: clamp(2.2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+}
+
+.h1 .grad {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.h2 {
+  margin-bottom: 0.5rem;
+  font-family: var(--display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.h3 {
+  margin-bottom: 0.3rem;
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.lede {
+  max-width: 560px;
+  color: var(--dim);
+  font-size: clamp(1rem, 1.6vw, 1.1rem);
+}
+
+.hint {
+  margin: 0.4rem 0 0;
+  color: var(--faint);
+  font-size: 0.8rem;
+}
+
+/* The single headline figure a page is really about: the live Robux rate on
+   the storefront, the price preview on the dashboard. */
+.rate-value {
+  display: block;
+  margin-bottom: 1.2rem;
+  color: var(--gold);
+  font-family: var(--display);
+  font-size: clamp(2rem, 4.4vw, 2.5rem);
+  font-weight: 700;
+}

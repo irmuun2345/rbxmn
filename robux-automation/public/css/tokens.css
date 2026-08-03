@@ -1,0 +1,128 @@
+/* ============================================================
+   Design tokens, reset and the page shell.
+   Every other file here reads the custom properties defined below, so this
+   must load first.
+   ============================================================ */
+
+/* ============================================================
+   RBX — tailored dark storefront + admin
+   Quiet charcoal, brass, and ivory. No neon, no shine.
+   ============================================================ */
+
+:root {
+  --bg: #0c0c0d;
+  --bg-soft: #141416;
+  --surface: rgba(255, 255, 255, 0.025);
+  --surface-hover: rgba(255, 255, 255, 0.045);
+  --border: rgba(201, 168, 106, 0.16);
+  --border-strong: rgba(201, 168, 106, 0.32);
+  --text: #e9e4d8;
+  --dim: #a49d8f;
+  /* --faint was #6b665c, which measured 3.43:1 on --bg and so failed WCAG AA
+     for normal text. It is the colour of nearly every hint, placeholder,
+     table header and helper line on the site, so the failure was systemic
+     rather than cosmetic. #8a8377 is the same hue at 5.02:1. */
+  --faint: #8a8377;
+  --gold: #c3a26a;
+  --gold-deep: #9c8151;
+  --burgundy: #7a2e34;
+  /* Likewise #b25850 measured 4.10:1. Error text is the text a user most
+     needs to be able to read, so it gets lifted furthest — #cf6a60 is 5.62:1. */
+  --danger: #cf6a60;
+  --danger-bg: rgba(207, 106, 96, 0.12);
+  --positive-bg: rgba(195, 162, 106, 0.12);
+  --radius: 6px;
+  --radius-sm: 4px;
+  /* Sticky topbar height. Anchors and scrollIntoView both have to clear it. */
+  --topbar-h: 66px;
+  --display: "PT Serif", Georgia, serif;
+  --body: "Inter", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+  /* Without this every "#why" jump and every scrollIntoView() parks the
+     target's heading underneath the sticky topbar. Set on the scroll
+     container so it applies to both. */
+  scroll-padding-top: calc(var(--topbar-h) + 1.25rem);
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--body);
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+}
+
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+h1, h2, h3, p {
+  margin: 0 0 0.5rem;
+}
+
+[hidden], .hidden {
+  display: none !important;
+}
+
+.full {
+  width: 100%;
+}
+
+:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.skip-link:focus {
+  position: fixed;
+  z-index: 1000;
+  top: 0.6rem;
+  left: 0.6rem;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  overflow: visible;
+  clip: auto;
+  color: var(--bg);
+  background: var(--gold);
+  border-radius: var(--radius-sm);
+}
+
+.page {
+  width: min(1120px, calc(100% - 2.5rem));
+  margin: 0 auto;
+  position: relative;
+}
+
+.tabular {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}

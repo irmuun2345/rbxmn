@@ -1,0 +1,126 @@
+/* ============================================================
+   Order workspace line items plus the profile and loyalty-level card.
+   ============================================================ */
+
+/* ============================================================
+   Order workspace
+   ============================================================ */
+
+.line-item {
+  display: flex;
+  margin: 0.5rem 0 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.line-item span {
+  color: var(--dim);
+  font-size: 0.86rem;
+}
+
+.line-item small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--faint);
+  font-size: 0.72rem;
+}
+
+.line-item strong {
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.payment-panel {
+  padding-top: 0.2rem;
+}
+
+.payment-panel-head {
+  display: flex;
+  margin-bottom: 0.9rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.bonus-note {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--gold);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+/* ---------- profile + level ---------- */
+
+.profile-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.profile-row {
+  display: flex;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.profile-row span {
+  color: var(--dim);
+}
+
+.level-card {
+  display: flex;
+  margin-bottom: 1.1rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 1rem;
+}
+
+.level-ring {
+  flex-shrink: 0;
+}
+
+.level-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.level-ring .track {
+  stroke: var(--border);
+}
+
+.level-ring .fill {
+  stroke: var(--gold);
+  stroke-linecap: butt;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 700ms ease;
+}
+
+.level-ring-label {
+  transform: translateY(0.3em);
+  fill: var(--text);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.level-info strong {
+  display: block;
+  color: var(--gold);
+  font-family: var(--display);
+  font-size: 1.05rem;
+}
+
+.level-info span {
+  color: var(--faint);
+  font-size: 0.78rem;
+}

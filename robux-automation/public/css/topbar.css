@@ -1,0 +1,190 @@
+/* ============================================================
+   Site header: brand, navigation, mobile menu and the account dropdown.
+   ============================================================ */
+
+/* ============================================================
+   Topbar
+   ============================================================ */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--border);
+  background: rgba(12, 12, 13, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.topbar-inner {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.brand {
+  color: var(--gold);
+  font-family: var(--display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.brand-tag {
+  margin-left: 0.5rem;
+  color: var(--faint);
+  font-family: var(--body);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.nav-link {
+  color: var(--dim);
+  font-size: 0.86rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.nav-link:hover {
+  color: var(--gold);
+}
+
+.nav-link-cta {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--radius-sm);
+  color: var(--gold);
+}
+
+.nav-link-cta:hover {
+  color: #f1e6cf;
+  background: var(--surface);
+  border-color: var(--gold);
+}
+
+/* ---------- mobile nav ---------- */
+
+/* Hidden above the breakpoint; below it this replaces the old
+   `display: none` on the nav links, which removed the site's entire
+   navigation with nothing in its place. */
+.nav-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--dim);
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-toggle svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.nav-toggle[aria-expanded="true"] {
+  color: var(--gold);
+  border-color: var(--border-strong);
+}
+
+.nav-toggle[aria-expanded="true"] .nav-icon-open,
+.nav-toggle[aria-expanded="false"] .nav-icon-close {
+  display: none;
+}
+
+/* ---------- account menu ---------- */
+
+.account {
+  position: relative;
+}
+
+.account-trigger {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem;
+  color: var(--text);
+  background: transparent;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.account-trigger:hover,
+.account-trigger[aria-expanded="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+/* The level number doubles as the avatar — it is the one piece of account
+   state worth carrying in the header, since it drives the discount. */
+.account-badge {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--gold-deep);
+  border-radius: 50%;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.account-name {
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-chevron {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  transition: transform 150ms ease;
+}
+
+.account-trigger[aria-expanded="true"] .account-chevron {
+  transform: rotate(180deg);
+}
+
+.account-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 40;
+  width: min(300px, calc(100vw - 2rem));
+  padding: 1.1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.9);
+}

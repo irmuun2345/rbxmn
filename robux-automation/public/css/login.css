@@ -1,0 +1,43 @@
+/* ============================================================
+   Admin login card.
+   ============================================================ */
+
+/* ============================================================
+   Login
+   ============================================================ */
+
+.login-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+}
+
+.login-card {
+  width: min(400px, 100%);
+  padding: 2rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+}
+
+.login-card .brand {
+  display: inline-block;
+  margin-bottom: 1.6rem;
+}
+
+.login-card > p {
+  margin-bottom: 1.6rem;
+  color: var(--dim);
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 1.3rem;
+  color: var(--faint);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.back-link:hover {
+  color: var(--gold);
+}

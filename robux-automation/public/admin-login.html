@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="mn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c0c0d">
+  <meta name="robots" content="noindex, nofollow">
+  <title>RBX Админ нэвтрэх</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Same cascade order as the storefront, minus the files this page has no
+       markup for. See the note in index.html. -->
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/controls.css">
+  <link rel="stylesheet" href="/css/feedback.css">
+  <link rel="stylesheet" href="/css/topbar.css">
+  <link rel="stylesheet" href="/css/login.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body>
+  <div class="bg-blobs" aria-hidden="true"><span></span></div>
+  <main class="login-shell">
+    <div class="login-card">
+      <a class="brand" href="/">RBX<span class="brand-tag">Админ</span></a>
+      <h1 class="h2">Нэвтрэх</h1>
+      <p>Удирдлагын аккаунтын мэдээллээ оруулна уу.</p>
+
+      <form id="login-form">
+        <div class="field">
+          <label for="username">Хэрэглэгчийн нэр</label>
+          <input type="text" id="username" autocomplete="username" placeholder="Админ нэр" autofocus required>
+        </div>
+        <div class="field">
+          <label for="password">Нууц үг</label>
+          <input type="password" id="password" autocomplete="current-password" placeholder="Нууц үг" required>
+        </div>
+        <button class="btn btn-primary full" type="submit">Нэвтрэх</button>
+      </form>
+
+      <p id="login-result" class="notice" role="alert" aria-live="polite" hidden></p>
+      <a class="back-link" href="/">← Дэлгүүр рүү буцах</a>
+    </div>
+  </main>
+
+  <script type="module" src="/js/admin/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+node_modules/
+
+# Secrets. config/.env holds SESSION_SECRET and the Roblox OAuth client
+# secret; committing it once means rotating both.
+config/.env
+.env
+*.pem
+*.key
+
+# Databases. These hold real customer records, phone links and order history.
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Uploaded receipts are customers' bank documents and must never leave the
+# server they were uploaded to.
+uploads/
+
+# Logs and generated output
+*.log
+output/
+.playwright-cli/
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

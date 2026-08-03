@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="mn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c0c0d">
+  <meta name="robots" content="noindex, nofollow">
+  <title>RBX Админ</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Same cascade order as the storefront, minus the files this page has no
+       markup for. See the note in index.html. -->
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/controls.css">
+  <link rel="stylesheet" href="/css/feedback.css">
+  <link rel="stylesheet" href="/css/lists.css">
+  <link rel="stylesheet" href="/css/topbar.css">
+  <link rel="stylesheet" href="/css/workspace.css">
+  <link rel="stylesheet" href="/css/admin.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body>
+  <div class="bg-blobs" aria-hidden="true"><span></span></div>
+  <a class="skip-link" href="#dashboard">Удирдлагын хэсэг рүү очих</a>
+
+  <header class="topbar">
+    <div class="page topbar-inner">
+      <a class="brand" href="/admin.html">RBX<span class="brand-tag">Админ</span></a>
+      <div class="nav">
+        <span class="nav-link" id="admin-username">Админ</span>
+        <button class="btn btn-ghost btn-sm" id="logout-btn" type="button">Гарах</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page admin-shell" id="dashboard">
+    <header class="admin-heading">
+      <div>
+        <h1 class="h2">Захиалгын самбар</h1>
+      </div>
+      <a class="btn btn-ghost" href="/" target="_blank" rel="noopener">Дэлгүүр харах ↗</a>
+    </header>
+
+    <section class="stat-strip" aria-label="Товч мэдээлэл">
+      <div class="stat">
+        <span>Шалгах хүлээгдэж буй</span>
+        <strong id="payment-orders">—</strong>
+      </div>
+      <div class="stat">
+        <span>Хүргэхэд бэлэн</span>
+        <strong id="ready-orders">—</strong>
+      </div>
+      <div class="stat">
+        <span>Дууссан</span>
+        <strong id="purchased-orders">—</strong>
+      </div>
+      <div class="stat">
+        <span>100 Robux</span>
+        <strong class="tabular" id="rate-stat">—</strong>
+      </div>
+    </section>
+
+    <!-- Only rendered when something is actually stuck. These orders had a
+         payout request issued whose result we never saw, so they sit here
+         until a human checks Roblox — the system will never retry them. -->
+    <section class="panel stalled-section" id="stalled-section" hidden>
+      <div class="panel-head">
+        <div>
+          <h2 class="h3">⚠ Гацсан хүргэлт</h2>
+          <p>Шилжүүлэг илгээгдсэн ч хариу нь ирээгүй. <strong>Roblox дээрх группын түүхийг шалгаад</strong> юу болсныг сонгоно уу — систем өөрөө дахин оролдохгүй.</p>
+        </div>
+      </div>
+      <div class="editable-list" id="stalled-list"></div>
+      <p id="stalled-result" class="notice" role="status" aria-live="polite" hidden></p>
+    </section>
+
+    <section class="panel ledger-section">
+      <div class="panel-head">
+        <div>
+          <h2 class="h3">Захиалгын дараалал</h2>
+        </div>
+      </div>
+      <p id="automation-status" class="hint">Roblox automation тохиргоог шалгаж байна…</p>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Хэрэглэгч</th>
+              <th>Захиалга</th>
+              <th>Төлбөр / Утга</th>
+              <th>Баримт</th>
+              <th>Хүргэлт</th>
+              <th>Үйлдэл</th>
+            </tr>
+          </thead>
+          <tbody id="orders-list">
+            <tr><td class="empty-cell" colspan="6">Захиалгын дарааллыг ачаалж байна…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p id="orders-result" class="notice" role="status" aria-live="polite" hidden></p>
+    </section>
+
+    <!-- Configuration sits below the queue on purpose. Approving payments is
+         the hourly job; prices, levels, events and bot credentials are
+         touched weeks apart, and having twelve collapsed panels above the
+         work meant scrolling past all of them every single time. -->
+    <header class="admin-heading admin-subheading">
+      <div>
+        <h2 class="h2">Тохиргоо</h2>
+      </div>
+    </header>
+
+    <div class="panel price-editor-grid">
+      <div class="price-preview">
+        <h2 class="h3">Дэлгүүрт харагдах үнэ</h2>
+        <strong class="rate-value tabular" id="price-preview">4,500 ₮</strong>
+      </div>
+
+      <div>
+        <h2 class="h3">100 Robux-ын үнэ</h2>
+        <form id="price-form">
+          <div class="field">
+            <label for="price-per-100">Шинэ үнэ</label>
+            <div class="price-input">
+              <input id="price-per-100" type="number" min="100" max="10000000" step="100" inputmode="numeric" required>
+              <span aria-hidden="true">₮</span>
+            </div>
+            <p class="hint">100₮ – 10,000,000₮</p>
+          </div>
+          <button class="btn full" type="submit">Үнийг хадгалах</button>
+        </form>
+        <p id="price-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </div>
+
+    <details class="stub-toggle">
+      <summary>Админы нууц үг солих</summary>
+      <div class="details-body">
+        <form id="password-form">
+          <div class="field">
+            <label for="current-password">Одоогийн нууц үг</label>
+            <input id="current-password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="field">
+            <label for="new-password">Шинэ нууц үг</label>
+            <input id="new-password" type="password" autocomplete="new-password" minlength="12" required>
+            <p class="hint">Хамгийн багадаа 12 тэмдэгт.</p>
+          </div>
+          <button class="btn" type="submit">Нууц үг шинэчлэх</button>
+        </form>
+        <p id="password-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle" open>
+      <summary>Данс</summary>
+      <div class="details-body">
+        <form id="bank-form">
+          <div class="field">
+            <label for="bank-name-input">Банк</label>
+            <input id="bank-name-input" type="text" placeholder="Жишээ: Хаан банк" required>
+          </div>
+          <div class="field">
+            <label for="bank-account-input">Дансны дугаар</label>
+            <input id="bank-account-input" type="text" inputmode="numeric" placeholder="Жишээ: 5001234567" required>
+          </div>
+          <div class="field">
+            <label for="bank-holder-input">Данс эзэмшигчийн нэр</label>
+            <input id="bank-holder-input" type="text" placeholder="Жишээ: Г. Бат-Эрдэнэ" required>
+          </div>
+          <button class="btn" type="submit">Дансны мэдээлэл хадгалах</button>
+        </form>
+        <p id="bank-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle" open>
+      <summary>Групп ба bot</summary>
+      <div class="details-body">
+        <div class="field">
+          <label for="group-id-input">Группын ID</label>
+          <input id="group-id-input" type="text" inputmode="numeric" placeholder="Жишээ: 1234567">
+          <p class="hint" id="group-name-status">Тохируулагдаагүй байна.</p>
+        </div>
+        <button class="btn" id="save-group-btn" type="button">Групп хадгалах</button>
+        <p id="group-result" class="notice" role="status" aria-live="polite" hidden></p>
+
+        <div class="field field-spaced">
+          <label>Bot аккаунт</label>
+          <p class="hint" id="bot-status">Холбогдоогүй байна.</p>
+        </div>
+        <div class="field">
+          <label for="bot-cookie-input">Bot-ийн .ROBLOSECURITY cookie</label>
+          <input id="bot-cookie-input" type="password" autocomplete="off" placeholder="Шинэ bot холбоход л оруулна">
+          <p class="hint">Bot нь группын админ эрхтэй байх ёстой.</p>
+        </div>
+        <div class="action-buttons">
+          <button class="btn" id="connect-bot-btn" type="button">Bot холбох</button>
+          <button class="btn btn-danger" id="disconnect-bot-btn" type="button">Bot салгах</button>
+        </div>
+        <p id="bot-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle">
+      <summary>Хэрэглэгчийн түвшин</summary>
+      <div class="details-body">
+        <p class="hint">Хүргэгдсэн захиалгын нийт Robux-аар тооцно.</p>
+        <div class="editable-list" id="levels-list"></div>
+        <div class="inline-form">
+          <div class="field">
+            <label for="new-level-threshold">Босго (нийт R$)</label>
+            <input id="new-level-threshold" type="number" min="1" step="1" placeholder="Жишээ: 12000">
+          </div>
+          <div class="field">
+            <label for="new-level-discount">Хямдрал %</label>
+            <input id="new-level-discount" type="number" min="0" max="90" step="1" placeholder="Жишээ: 5">
+          </div>
+          <button class="btn" id="add-level-btn" type="button">Түвшин нэмэх</button>
+        </div>
+        <p id="levels-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle">
+      <summary>Эвент</summary>
+      <div class="details-body">
+        <p class="hint">Үргэлжлэх хугацаанд захиалга бүр илүү Robux авна. Төлөх дүн хэвээр.</p>
+        <div class="editable-list" id="events-list"></div>
+        <div class="inline-form">
+          <div class="field">
+            <label for="event-name-input">Нэр</label>
+            <input id="event-name-input" type="text" placeholder="Жишээ: Амралтын өдрийн бонус">
+          </div>
+          <div class="field">
+            <label for="event-bonus-input">Бонус %</label>
+            <input id="event-bonus-input" type="number" min="1" max="500" step="1" placeholder="10">
+          </div>
+          <div class="field">
+            <label for="event-start-input">Эхлэх</label>
+            <input id="event-start-input" type="datetime-local">
+          </div>
+          <div class="field">
+            <label for="event-end-input">Дуусах</label>
+            <input id="event-end-input" type="datetime-local">
+          </div>
+        </div>
+        <button class="btn" id="add-event-btn" type="button">Эвент үүсгэх</button>
+        <p id="events-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle" open>
+      <summary>Robux багц</summary>
+      <div class="details-body">
+        <p class="hint">Хэрэглэгч зөвхөн эдгээр хэмжээнээс сонгоно.</p>
+        <div class="editable-list" id="packages-list"></div>
+        <div class="inline-form">
+          <div class="field">
+            <label for="new-package-amount">Robux хэмжээ</label>
+            <input id="new-package-amount" type="number" min="1" step="1" placeholder="Жишээ: 800">
+          </div>
+          <div class="field">
+            <label for="new-package-price">Үнэ (₮)</label>
+            <input id="new-package-price" type="number" min="1" step="1" placeholder="Жишээ: 36000">
+          </div>
+          <div class="field">
+            <label for="new-package-discount">Эвентийн хямдрал %</label>
+            <input id="new-package-discount" type="number" min="0" max="90" step="1" placeholder="0">
+          </div>
+          <button class="btn" id="add-package-btn" type="button">Багц нэмэх</button>
+        </div>
+        <p id="packages-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle">
+      <summary>Утасны холболт</summary>
+      <div class="details-body">
+        <p class="hint">Нэг аккаунт — нэг дугаар. Утсаа сольсон хэрэглэгчид л салгана.</p>
+        <div class="editable-list" id="phone-links-list"></div>
+        <p id="phone-links-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle">
+      <summary>Бэлгийн карт</summary>
+      <div class="details-body">
+        <p class="hint">Төлбөрийг баталгаажуулсны дараа код идэвхжинэ.</p>
+        <div class="editable-list" id="gift-cards-list"></div>
+        <p id="gift-cards-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle">
+      <summary>Группын гишүүнчлэл</summary>
+      <div class="details-body">
+        <p class="hint">"Тэмдэглэсэн" = анх шалгахад аль хэдийн гишүүн байсан, хугацаа тэр өдрөөс эхэлсэн.</p>
+        <div class="editable-list" id="memberships-list"></div>
+        <p id="memberships-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle">
+      <summary>Урилгын хөтөлбөр</summary>
+      <div class="details-body">
+        <p class="hint"><strong>Зөвхөн хүргэгдсэн захиалга шимтгэл төрүүлнэ.</strong> Төлбөр нь зөвшөөрөгдсөн ч хүргэгдээгүй бол тооцохгүй.</p>
+
+        <div class="field">
+          <label class="checkbox-row">
+            <input type="checkbox" id="referral-enabled"> Хөтөлбөрийг идэвхжүүлэх
+          </label>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="referral-bonus-percent">Урамшуулал (%)</label>
+            <input type="number" id="referral-bonus-percent" min="0" max="50" step="0.5">
+            <p class="hint">Кодыг ашигласан хэрэглэгчид.</p>
+          </div>
+          <div class="field">
+            <label for="referral-commission-percent">Шимтгэл (%)</label>
+            <input type="number" id="referral-commission-percent" min="0" max="50" step="0.5">
+            <p class="hint">Кодын эзэнд.</p>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="referral-bonus-scope">Урамшуулал хэдэн удаа</label>
+            <select id="referral-bonus-scope">
+              <option value="every_order">Захиалга бүрт</option>
+              <option value="first_order">Зөвхөн эхний захиалгад</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="referral-max-bonus">Урамшууллын дээд хязгаар (R$)</label>
+            <input type="number" id="referral-max-bonus" min="0" step="1">
+            <p class="hint">0 = хязгааргүй.</p>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="referral-min-payout">Төлөлтийн доод хэмжээ (R$)</label>
+            <input type="number" id="referral-min-payout" min="0" step="1">
+          </div>
+          <div class="field">
+            <label class="checkbox-row">
+              <input type="checkbox" id="referral-new-only"> Зөвхөн шинэ хэрэглэгч код холбоно
+            </label>
+          </div>
+        </div>
+
+        <button class="btn" id="save-referral-settings" type="button">Тохиргоо хадгалах</button>
+        <p id="referral-settings-result" class="notice" role="status" aria-live="polite" hidden></p>
+
+        <h3 class="h3 field-spaced">Кодууд</h3>
+        <p class="hint">Хувийг хоосон орхивол дээрх ерөнхий тохиргоог дагана.</p>
+        <div class="editable-list" id="referral-codes-list"></div>
+        <p id="referral-codes-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+    <details class="stub-toggle">
+      <summary>Аудит бүртгэл</summary>
+      <div class="details-body">
+        <div class="field">
+          <label for="audit-filter">Үйлдлээр шүүх</label>
+          <select id="audit-filter">
+            <option value="">Бүгд</option>
+            <option value="order.payment_approved">Төлбөр зөвшөөрсөн</option>
+            <option value="order.payment_rejected">Төлбөр татгалзсан</option>
+            <option value="order.fulfilled">Хүргэлт дууссан</option>
+            <option value="order.fulfillment_failed">Хүргэлт амжилтгүй</option>
+            <option value="receipt.submitted">Баримт илгээсэн</option>
+            <option value="receipt.duplicate_blocked">Давхардсан баримт</option>
+            <option value="admin.login_failed">Нэвтрэх оролдлого амжилтгүй</option>
+            <option value="setting.updated">Тохиргоо өөрчлөгдсөн</option>
+          </select>
+        </div>
+        <div class="editable-list" id="audit-list"></div>
+        <p id="audit-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+    </details>
+
+  </main>
+
+  <!-- Replaces window.prompt/confirm. Those rendered unstyled OS chrome that
+       could neither validate input nor explain a consequence, and blocked the
+       whole page — including the queue refresh — until dismissed. -->
+  <dialog class="app-dialog" id="app-dialog">
+    <form method="dialog" class="app-dialog-body" id="app-dialog-form">
+      <h2 id="app-dialog-title"></h2>
+      <p class="app-dialog-message" id="app-dialog-message"></p>
+      <div class="field" id="app-dialog-field" hidden>
+        <label for="app-dialog-input" id="app-dialog-label"></label>
+        <input id="app-dialog-input" type="text" autocomplete="off">
+        <p class="hint" id="app-dialog-hint"></p>
+      </div>
+      <p class="notice error" id="app-dialog-error" role="alert" hidden></p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-ghost" type="button" id="app-dialog-cancel">Болих</button>
+        <button class="btn btn-primary" type="button" id="app-dialog-confirm">Тийм</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/js/admin/main.js"></script>
+</body>
+</html>
