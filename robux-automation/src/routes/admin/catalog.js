@@ -4,8 +4,14 @@
 module.exports = function registerAdminCatalogRoutes(app, { adminController }, { requireAdminAuth }) {
   app.put('/admin/pricing', requireAdminAuth, adminController.updatePricing.bind(adminController));
 
-  // The bank account customers transfer payment to.
-  app.put('/admin/bank-account', requireAdminAuth, adminController.updateBankAccount.bind(adminController));
+  // The bank accounts customers transfer payment into. Several, so a buyer can
+  // pick one inside their own bank; the order they are listed in is the order
+  // buyers see them, hence the reorder endpoint.
+  app.get('/admin/bank-accounts', requireAdminAuth, adminController.listAllBankAccounts.bind(adminController));
+  app.post('/admin/bank-accounts', requireAdminAuth, adminController.createBankAccount.bind(adminController));
+  app.put('/admin/bank-accounts/order', requireAdminAuth, adminController.reorderBankAccounts.bind(adminController));
+  app.put('/admin/bank-accounts/:id', requireAdminAuth, adminController.updateBankAccount.bind(adminController));
+  app.delete('/admin/bank-accounts/:id', requireAdminAuth, adminController.deleteBankAccount.bind(adminController));
 
   // Loyalty level thresholds (based on lifetime Robux purchased).
   app.get('/admin/levels', requireAdminAuth, adminController.getLevels.bind(adminController));

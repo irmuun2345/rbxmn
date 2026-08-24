@@ -19,6 +19,7 @@ const MIGRATIONS = [
   require('./orders'),      // orders (game_passes) and transactions
   require('./catalog'),     // packages and bonus events
   require('./payments'),    // gateway confirmations and uploaded receipts
+  require('./banking'),     // the bank accounts customers transfer into
   require('./gift-cards'),
   require('./referrals'),
   require('./identity'),    // phone links and group-membership clocks

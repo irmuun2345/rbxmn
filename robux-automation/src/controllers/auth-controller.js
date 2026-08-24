@@ -59,7 +59,7 @@ class AuthController {
     const title = successful ? 'Аккаунт баталгаажлаа' : 'Баталгаажуулалт амжилтгүй';
     const message = successful
       ? 'Roblox аккаунт амжилттай холбогдлоо. Энэ цонхыг хаагаад үндсэн дэлгэц рүү буцна уу.'
-      : 'Хүсэлтийг баталгаажуулж чадсангүй. Үндсэн дэлгэцээс шинэ QR код үүсгээд дахин оролдоно уу.';
+      : 'Хүсэлтийг баталгаажуулж чадсангүй. Үндсэн дэлгэц рүү буцаад дахин нэвтэрнэ үү.';
 
     return res.status(successful ? 200 : 400).type('html').send(`<!doctype html>
 <html lang="mn">
@@ -141,7 +141,7 @@ class AuthController {
         return res.status(404).json({
           success: false,
           status: 'expired',
-          error: 'QR код хүчингүй болсон эсвэл хугацаа дууссан.'
+          error: 'Нэвтрэх код хүчингүй болсон эсвэл хугацаа дууссан.'
         });
       }
 
@@ -162,7 +162,7 @@ class AuthController {
           return res.status(410).json({
             success: false,
             status: 'expired',
-            error: 'Энэ QR код аль хэдийн ашиглагдсан. Шинэ QR код үүсгэнэ үү.'
+            error: 'Энэ нэвтрэх код аль хэдийн ашиглагдсан. Шинэ код авна уу.'
           });
         }
 

@@ -9,8 +9,9 @@
 // recomputed server-side on every request; what is held here only decides
 // what the page draws.
 export const state = {
-  // Roblox OAuth handshake in progress, if any.
+  // Roblox OAuth handshake in progress, if any, and the timer polling it.
   sessionId: null,
+  authPollTimer: null,
 
   // Set once the session cookie is known to be good.
   isAuthenticated: false,

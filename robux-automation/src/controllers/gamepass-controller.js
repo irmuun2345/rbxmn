@@ -53,15 +53,24 @@ class GamePassController {
     });
   }
 
-  // The account customers transfer to. Always read fresh, so an order created
-  // a second after an admin edited it quotes the new account.
+  // The accounts customers can transfer to. Always read fresh, so an order
+  // created a second after an admin edited them quotes the new list.
+  //
+  // Returns every active account rather than one: the buyer transfers into
+  // whichever bank is also theirs. Nothing downstream depends on which they
+  // pick — a payment is tied to its order by the RBX-XXXXXX reference, not by
+  // the account it landed in.
   async getBankDetails() {
-    const [name, accountNumber, accountHolder] = await Promise.all([
-      this.getSettingValue('bank_name'),
-      this.getSettingValue('bank_account_number'),
-      this.getSettingValue('bank_account_holder')
-    ]);
-    return { name, accountNumber, accountHolder };
+    const rows = await new Promise((resolve, reject) => {
+      this.dbHelpers.listActiveBankAccounts((error, result) => (error ? reject(error) : resolve(result)));
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.bank_name,
+      accountNumber: row.account_number,
+      accountHolder: row.account_holder
+    }));
   }
 
   // Prices one package for one buyer.
@@ -108,7 +117,7 @@ class GamePassController {
 
   // The fields both order routes return. Each adds its own on top — the Game
   // Pass id and purchase URL for one, the group link for the other.
-  static quoteResponse(quote, { orderId, paymentReference, bank }) {
+  static quoteResponse(quote, { orderId, paymentReference, banks }) {
     const { terms } = quote;
     return {
       success: true,
@@ -125,7 +134,7 @@ class GamePassController {
       amountMnt: quote.amountMnt,
       ratePer100Mnt: quote.ratePer100Mnt,
       paymentReference,
-      bank,
+      banks,
       status: 'awaiting_payment'
     };
   }
@@ -147,7 +156,7 @@ class GamePassController {
       ratePer100Mnt: order.rate_per_100_mnt,
       paymentReference: order.payment_reference,
       deliveryMethod: order.delivery_method,
-      bank: await this.getBankDetails(),
+      banks: await this.getBankDetails(),
       status: order.status
     });
   }
@@ -303,7 +312,7 @@ class GamePassController {
         ...GamePassController.quoteResponse(quote, {
           orderId: gamePass.id,
           paymentReference,
-          bank: await this.getBankDetails()
+          banks: await this.getBankDetails()
         }),
         message: 'Game Pass үүслээ. Төлбөр баталгаажуулах дараалалд нэмэгдлээ.',
         gamePassId: robloxGamePass.gamePassId,
@@ -392,7 +401,7 @@ class GamePassController {
         ...GamePassController.quoteResponse(quote, {
           orderId: order.id,
           paymentReference,
-          bank: await this.getBankDetails()
+          banks: await this.getBankDetails()
         }),
         message: 'Захиалга үүслээ. Төлбөр баталгаажуулах дараалалд нэмэгдлээ.',
         groupId,

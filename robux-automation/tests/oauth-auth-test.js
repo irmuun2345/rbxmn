@@ -201,12 +201,18 @@ async function testRealGamePassOrder() {
     getSetting(key, callback) {
       const values = {
         price_per_100_robux_mnt: '4500',
-        level_thresholds: '[]',
-        bank_name: 'Khan Bank',
-        bank_account_number: '5000123456',
-        bank_account_holder: 'RBX LLC'
+        level_thresholds: '[]'
       };
       callback(null, { value: values[key] ?? '' });
+    },
+    // Several accounts are offered so a buyer can transfer inside their own
+    // bank; two here so the quote is checked against a list, not a single row
+    // that happens to work either way.
+    listActiveBankAccounts(callback) {
+      callback(null, [
+        { id: 1, bank_name: 'Khan Bank', account_number: '5000123456', account_holder: 'RBX LLC' },
+        { id: 2, bank_name: 'Golomt Bank', account_number: '1105558888', account_holder: 'RBX LLC' }
+      ]);
     },
     getPackageById(id, callback) {
       assert.equal(id, 3);

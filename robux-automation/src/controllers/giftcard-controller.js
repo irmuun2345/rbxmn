@@ -53,11 +53,9 @@ class GiftCardController {
         );
       });
 
-      const [bankName, bankAccountNumber, bankAccountHolder] = await Promise.all([
-        this.getSettingValue('bank_name'),
-        this.getSettingValue('bank_account_number'),
-        this.getSettingValue('bank_account_holder')
-      ]);
+      const banks = await new Promise((resolve, reject) => {
+        this.dbHelpers.listActiveBankAccounts((error, rows) => (error ? reject(error) : resolve(rows)));
+      });
 
       res.json({
         success: true,
@@ -66,7 +64,12 @@ class GiftCardController {
         robuxAmount: deliveredRobux,
         amountMnt,
         paymentReference,
-        bank: { name: bankName, accountNumber: bankAccountNumber, accountHolder: bankAccountHolder },
+        banks: banks.map((row) => ({
+          id: row.id,
+          name: row.bank_name,
+          accountNumber: row.account_number,
+          accountHolder: row.account_holder
+        })),
         status: 'awaiting_payment'
       });
     } catch (error) {

@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const axios = require('axios');
+const { generateTotp } = require('./totp');
 
 const GROUPS_URL = 'https://groups.roblox.com/v1/groups';
 const USER_GROUPS_URL = 'https://groups.roblox.com/v2/users';
@@ -7,6 +8,12 @@ const AUTH_USER_URL = 'https://users.roblox.com/v1/users/authenticated';
 const ECONOMY_URL = 'https://economy.roblox.com/v1/groups';
 const TICKET_URL = 'https://auth.roblox.com/v1/authentication-ticket';
 const LOGOUT_URL = 'https://auth.roblox.com/v2/logout';
+const TWO_STEP_URL = 'https://twostepverification.roblox.com/v1/users';
+const CHALLENGE_CONTINUE_URL = 'https://apis.roblox.com/challenge/v1/continue';
+
+// Roblox names the challenge type in a response header. Only one of them can
+// be answered without a human in the room.
+const TWO_STEP_CHALLENGE = 'twostepverification';
 
 // Roblox rotates the CSRF token roughly every few minutes. Refreshing a
 // little early is free; being caught with a stale one costs a round trip.
@@ -114,25 +121,176 @@ class RobloxGroup {
     return token;
   }
 
-  // Wraps a state-changing call so a stale cached token costs one retry
-  // instead of a stranded order.
+  // A 2-step verification demand, read off the response headers Roblox
+  // attaches to the 403. Returns null for an ordinary 403.
+  static readChallenge(error) {
+    const headers = error?.response?.headers || {};
+    const id = headers['rblx-challenge-id'];
+    const metadata = headers['rblx-challenge-metadata'];
+    if (!id || !metadata) return null;
+
+    return {
+      id,
+      type: String(headers['rblx-challenge-type'] || '').toLowerCase(),
+      metadata
+    };
+  }
+
+  // Answers a 2-step challenge with a code this process generates, and returns
+  // the headers that let the refused request through on a second attempt.
   //
-  // The safety argument for retrying at all: a 403 carrying a fresh
-  // x-csrf-token means Roblox rejected the request at the CSRF gate, before
-  // the handler ran. Nothing was applied, so re-sending cannot double-apply.
-  // Any other failure is NOT retried here — see sendPayout.
-  static async withCsrf(cookie, send) {
-    let token = await this.getCsrfToken(cookie);
+  // Every failure in here is flagged `preflight`, and that is a statement
+  // about Roblox rather than a convenience: a challenge is raised at the
+  // authorisation gate, before the handler behind it runs. The payout that
+  // triggered this was refused, not applied. So whatever goes wrong while
+  // answering, no Robux moved, and the order is safe to return to the queue.
+  static async solveChallenge(challenge, cookie, totpSecret, csrfToken) {
+    if (challenge.type !== TWO_STEP_CHALLENGE) {
+      throw Object.assign(
+        new Error(`Roblox дэмжигдээгүй challenge шаардлаа (${challenge.type || 'тодорхойгүй'}).`),
+        { code: 'UNSUPPORTED_CHALLENGE', preflight: true }
+      );
+    }
+    if (!totpSecret) {
+      throw Object.assign(
+        new Error('Bot аккаунт 2FA код шаардаж байна. Админ хэсэгт authenticator секретийг оруулна уу.'),
+        { code: 'TOTP_NOT_CONFIGURED', preflight: true }
+      );
+    }
+
+    let metadata;
+    try {
+      metadata = JSON.parse(Buffer.from(challenge.metadata, 'base64').toString('utf8'));
+    } catch {
+      throw Object.assign(
+        new Error('Roblox-ийн challenge мэдээллийг уншиж чадсангүй.'),
+        { code: 'CHALLENGE_METADATA_UNREADABLE', preflight: true }
+      );
+    }
+
+    // The outer `rblx-challenge-id` and the inner `challengeId` are different
+    // identifiers for the same demand, and the two endpoints below want
+    // different ones. Mixing them up produces a 400 that reads like a bad code.
+    const userId = metadata.userId;
+    const twoStepChallengeId = metadata.challengeId;
+    if (!userId || !twoStepChallengeId) {
+      throw Object.assign(
+        new Error('Roblox-ийн challenge мэдээлэл дутуу байна.'),
+        { code: 'CHALLENGE_METADATA_INCOMPLETE', preflight: true }
+      );
+    }
+
+    const authHeaders = { ...cookieHeader(cookie), 'X-CSRF-TOKEN': csrfToken };
 
     try {
-      return await send(token);
-    } catch (error) {
-      const rotated = error.response?.status === 403 && error.response?.headers?.['x-csrf-token'];
-      if (!rotated) throw error;
+      // A code is only valid for its own 30-second window, and a server clock
+      // a minute out would otherwise fail every payout forever with an error
+      // that says nothing about clocks. One retry against the previous window
+      // costs a round trip and covers the realistic drift.
+      let verification = null;
+      for (const offsetSteps of [0, -1]) {
+        try {
+          const response = await axios.post(
+            `${TWO_STEP_URL}/${encodeURIComponent(userId)}/challenges/authenticator/verify`,
+            {
+              challengeId: twoStepChallengeId,
+              actionType: 'Generic',
+              code: generateTotp(totpSecret, { offsetSteps })
+            },
+            { headers: authHeaders, timeout: REQUEST_TIMEOUT_MS }
+          );
+          verification = response.data?.verificationToken || null;
+          if (verification) break;
+        } catch (error) {
+          // A rejected code is the only thing worth a second window. Anything
+          // else — a malformed secret, a network failure — repeats identically.
+          if (offsetSteps !== 0 || error.response?.status !== 400) throw error;
+        }
+      }
 
-      token = error.response.headers['x-csrf-token'];
-      csrfCache.set(cookieKey(cookie), { token, fetchedAt: Date.now() });
-      return send(token);
+      if (!verification) {
+        throw Object.assign(
+          new Error('Roblox 2FA кодыг хүлээж авсангүй. Серверийн цаг эсвэл секретийг шалгана уу.'),
+          { code: 'TWO_STEP_REJECTED', preflight: true }
+        );
+      }
+
+      // Roblox wants this object twice over: as a JSON string in the continue
+      // body, and base64 of the same JSON in the header on the retry.
+      const continuation = JSON.stringify({
+        verificationToken: verification,
+        challengeId: twoStepChallengeId,
+        actionType: 'Generic'
+      });
+
+      await axios.post(
+        CHALLENGE_CONTINUE_URL,
+        {
+          challengeId: challenge.id,
+          challengeType: TWO_STEP_CHALLENGE,
+          challengeMetadata: continuation
+        },
+        { headers: authHeaders, timeout: REQUEST_TIMEOUT_MS }
+      );
+
+      return {
+        'rblx-challenge-id': challenge.id,
+        'rblx-challenge-type': TWO_STEP_CHALLENGE,
+        'rblx-challenge-metadata': Buffer.from(continuation).toString('base64')
+      };
+    } catch (error) {
+      if (error.preflight) throw error;
+
+      // Reached only when the verify or continue call itself failed. The
+      // original request was still refused at the gate, so this is every bit
+      // as never-sent as the checks above.
+      throw Object.assign(
+        new Error('Bot-ийн 2FA баталгаажуулалт амжилтгүй боллоо.'),
+        { code: 'TWO_STEP_FAILED', preflight: true, cause: error }
+      );
+    }
+  }
+
+  // Wraps a state-changing call so a stale cached token, or a 2FA demand,
+  // costs one retry instead of a stranded order.
+  //
+  // The safety argument for retrying at all: a 403 carrying a fresh
+  // x-csrf-token — or a challenge header — means Roblox rejected the request
+  // at an authorisation gate, before the handler ran. Nothing was applied, so
+  // re-sending cannot double-apply. Any other failure is NOT retried here —
+  // see sendPayout.
+  //
+  // Each of the two conditions is answered at most once, so a request that
+  // keeps being refused stops after three attempts instead of looping.
+  static async withCsrf(cookie, send, { totpSecret = null } = {}) {
+    let token = await this.getCsrfToken(cookie);
+    let challengeHeaders = {};
+    let csrfRetried = false;
+    let challengeSolved = false;
+
+    for (;;) {
+      try {
+        return await send(token, challengeHeaders);
+      } catch (error) {
+        if (error.response?.status !== 403) throw error;
+
+        const challenge = this.readChallenge(error);
+        if (challenge && !challengeSolved) {
+          challengeHeaders = await this.solveChallenge(challenge, cookie, totpSecret, token);
+          challengeSolved = true;
+          continue;
+        }
+
+        const rotated = error.response?.headers?.['x-csrf-token'];
+        if (rotated && !csrfRetried) {
+          token = rotated;
+          csrfCache.set(cookieKey(cookie), { token, fetchedAt: Date.now() });
+          csrfRetried = true;
+          continue;
+        }
+
+        throw error;
+      }
     }
   }
 
@@ -192,15 +350,15 @@ class RobloxGroup {
     }
   }
 
-  static async acceptJoinRequest(groupId, robloxUserId, cookie) {
-    return this.withCsrf(cookie, (csrfToken) => axios.post(
+  static async acceptJoinRequest(groupId, robloxUserId, cookie, totpSecret = null) {
+    return this.withCsrf(cookie, (csrfToken, challengeHeaders) => axios.post(
       `${GROUPS_URL}/${encodeURIComponent(groupId)}/join-requests/users/${encodeURIComponent(robloxUserId)}`,
       {},
       {
-        headers: { ...cookieHeader(cookie), 'X-CSRF-TOKEN': csrfToken },
+        headers: { ...cookieHeader(cookie), 'X-CSRF-TOKEN': csrfToken, ...challengeHeaders },
         timeout: REQUEST_TIMEOUT_MS
       }
-    ));
+    ), { totpSecret });
   }
 
   // Every payout this system sends passes through here, so the argument check
@@ -237,7 +395,7 @@ class RobloxGroup {
   // wire, a timeout or a 5xx cannot tell us whether Roblox applied it. Those
   // errors deliberately carry neither flag, and the caller strands the order
   // for a human rather than risk paying twice.
-  static async sendPayout(groupId, robloxUserId, amount, cookie) {
+  static async sendPayout(groupId, robloxUserId, amount, cookie, totpSecret = null) {
     const payable = this.assertPayableAmount(amount);
 
     const recipientId = Number(robloxUserId);
@@ -265,17 +423,17 @@ class RobloxGroup {
       );
     }
 
-    return this.withCsrf(cookie, (csrfToken) => axios.post(
+    return this.withCsrf(cookie, (csrfToken, challengeHeaders) => axios.post(
       `${GROUPS_URL}/${encodeURIComponent(groupId)}/payouts`,
       {
         PayoutType: 'FixedAmount',
         Recipients: [{ recipientId, recipientType: 'User', amount: payable }]
       },
       {
-        headers: { ...cookieHeader(cookie), 'X-CSRF-TOKEN': csrfToken },
+        headers: { ...cookieHeader(cookie), 'X-CSRF-TOKEN': csrfToken, ...challengeHeaders },
         timeout: REQUEST_TIMEOUT_MS
       }
-    ));
+    ), { totpSecret });
   }
 
   // The group's recent payout ledger, straight from Roblox.

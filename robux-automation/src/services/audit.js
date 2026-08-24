@@ -42,6 +42,9 @@ const ACTIONS = {
   REFERRAL_PAYOUT_RECORDED: 'referral.payout_recorded',
 
   SETTING_UPDATED: 'setting.updated',
+  BANK_ACCOUNT_CREATED: 'bank_account.created',
+  BANK_ACCOUNT_UPDATED: 'bank_account.updated',
+  BANK_ACCOUNT_DELETED: 'bank_account.deleted',
   PACKAGE_CREATED: 'package.created',
   PACKAGE_UPDATED: 'package.updated',
   PACKAGE_DELETED: 'package.deleted',
@@ -49,7 +52,9 @@ const ACTIONS = {
   EVENT_DELETED: 'event.deleted',
   PHONE_UNLINKED: 'phone.unlinked',
   BOT_ACCOUNT_UPDATED: 'bot.account_updated',
-  BOT_ACCOUNT_REMOVED: 'bot.account_removed'
+  BOT_ACCOUNT_REMOVED: 'bot.account_removed',
+  BOT_TWO_FACTOR_UPDATED: 'bot.two_factor_updated',
+  BOT_TWO_FACTOR_SOLVED: 'bot.two_factor_solved'
 };
 
 // Trusts req.ip, which behind a proxy requires `app.set('trust proxy', ...)`.

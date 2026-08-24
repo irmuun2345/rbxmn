@@ -7,6 +7,7 @@ import { formatMnt, formatNumber } from '../common/format.js';
 import { state } from './state.js';
 import { orderBlockedReason } from './fulfilment.js';
 import { loadProfile, renderLevel } from './profile.js';
+import { renderBankAccounts } from './bank-accounts.js';
 
 // Mirrors src/services/order-status.js. Each entry drives the badge, the
 // stepper position, and the explanatory line under the payment panel.
@@ -56,9 +57,7 @@ function setReceiptUploadVisible(visible) {
 function showPaymentPanel(data) {
   $('create-form').hidden = true;
   state.orderId = data.orderId;
-  $('bank-name').textContent = data.bank?.name || 'Тохируулаагүй';
-  $('bank-account').textContent = data.bank?.accountNumber || 'Тохируулаагүй';
-  $('bank-holder').textContent = data.bank?.accountHolder || 'Тохируулаагүй';
+  renderBankAccounts($('bank-list'), data.banks, 'bank');
   $('payment-reference').textContent = data.paymentReference;
   $('payment-amount').textContent = formatMnt(data.amountMnt);
   $('payment-status').className = 'badge badge-pending';

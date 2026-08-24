@@ -92,6 +92,44 @@
   flex: 1 1 auto;
 }
 
+/* ---------- bank accounts ---------- */
+
+/* Several accounts are listed so the buyer can transfer inside their own bank.
+   Each is boxed rather than run together, because three unboxed copy-rows in a
+   column read as one account with six fields. */
+.bank-list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.bank-card {
+  padding: 0.9rem 1rem 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.bank-card-name {
+  margin-bottom: 0.35rem;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* Inside a card the boxing already separates the accounts, so the rules that
+   separate rows are redundant — and the doubled-up borders looked like a
+   table nobody asked for. */
+.bank-card .copy-row {
+  margin: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.bank-card .copy-row:last-child {
+  border-bottom: 0;
+}
+
 /* ---------- copyable value rows ---------- */
 
 /* Bank details used to be plain text with no copy affordance, leaving the

@@ -5,7 +5,7 @@
 // point at Roblox's own authorisation page, and this page only ever polls its
 // own server for the outcome.
 
-import { $, escapeHtml, showResult, setLoading } from '../common/dom.js';
+import { $, showResult, setLoading } from '../common/dom.js';
 import { request } from '../common/api.js';
 import { state } from './state.js';
 import { updateGateVisibility } from './gates.js';
@@ -45,7 +45,7 @@ export function revealAuthenticated(username, universeIds = []) {
 }
 
 // Polls until Roblox tells our server the user approved (or refused). Stops
-// on its own if a newer QR has been generated in the meantime.
+// on its own if a newer code has been generated in the meantime.
 async function checkAuthStatus(sessionId) {
   if (!state.sessionId || state.sessionId !== sessionId) return;
   try {
@@ -58,40 +58,68 @@ async function checkAuthStatus(sessionId) {
       showResult($('qr-result'), `${data.username} аккаунт холбогдлоо.`);
       revealAuthenticated(data.username, data.authorizedUniverseIds || []);
     } else if (data.status === 'pending' || data.status === 'processing') {
-      setTimeout(() => checkAuthStatus(sessionId), 2000);
+      state.authPollTimer = setTimeout(() => checkAuthStatus(sessionId), 2000);
     } else {
-      showResult($('qr-result'), data.error || 'Баталгаажуулалт дууссангүй. Шинэ QR код үүсгэнэ үү.', true);
+      showResult($('qr-result'), data.error || 'Баталгаажуулалт дууссангүй. Дахин нэвтэрнэ үү.', true);
     }
   } catch (error) {
     showResult($('qr-result'), error.message, true);
   }
 }
 
+// Approving happens in a second tab, so this one sits in the background for
+// the whole handshake — where browsers throttle timers to roughly once a
+// minute. Whoever comes back here has just finished approving, so check
+// immediately rather than leaving them looking at a stale card.
+//
+// The pending timer is cleared first: two live chains would both reach the
+// authenticated branch and boot the signed-in page twice.
+function initReturnCheck() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!state.sessionId || state.isAuthenticated) return;
+    clearTimeout(state.authPollTimer);
+    checkAuthStatus(state.sessionId);
+  });
+}
+
 function initQrCode() {
   $('generate-qr-btn').addEventListener('click', async () => {
     const button = $('generate-qr-btn');
-    setLoading(button, true, 'Үүсгэж байна…');
-    $('qr-container').innerHTML = '<p>Нэг удаагийн код авч байна…</p>';
+    setLoading(button, true, 'Бэлдэж байна…');
     try {
-      const data = await request('/auth/qr', undefined, 'QR код үүсгэж чадсангүй. Дахин оролдоно уу.');
+      const data = await request('/auth/qr', undefined, 'Нэвтрэх код үүсгэж чадсангүй. Дахин оролдоно уу.');
+      // A newer code supersedes any handshake already in flight.
+      clearTimeout(state.authPollTimer);
       state.sessionId = data.sessionId;
-      // Both values land inside an attribute, so both are escaped — even
-      // though one is a data: URI this server rendered itself. A quote that
-      // slipped through either would close the attribute early.
-      $('qr-container').innerHTML = `
-        <div>
-          <img src="${escapeHtml(data.qrCode)}" alt="Roblox OAuth зөвшөөрлийн QR код">
-          <span>Утасныхаа камераар уншуулах эсвэл доорх холбоосыг нээнэ үү.</span>
-          <a class="btn oauth-link" href="${escapeHtml(data.authorizationUrl)}"
-             target="_blank" rel="noopener noreferrer">Roblox дээр нээх ↗</a>
-        </div>`;
+
+      // Assigned as properties rather than interpolated into markup: there is
+      // no attribute to break out of this way, so neither value needs
+      // escaping. Both are built by our own server from a fixed Roblox host.
+      $('oauth-link').href = data.authorizationUrl;
+      $('qr-image').src = data.qrCode;
+      $('qr-image').hidden = false;
+
+      // A QR is only legible to a camera that is not the screen showing it.
+      // On a touch device the visitor is almost certainly holding their only
+      // screen, so it stays folded; on a pointer device, scanning with a
+      // phone is the usual route in, so it is open.
+      $('qr-fallback').open = window.matchMedia('(pointer: fine)').matches;
+      $('auth-methods').hidden = false;
+
       showResult($('qr-result'), '10 минутын код бэлэн. Roblox дээр зөвшөөрөхийг хүлээж байна…');
       checkAuthStatus(data.sessionId);
     } catch (error) {
-      $('qr-container').innerHTML = '<p>Код үүссэнгүй. Дахин оролдоно уу.</p>';
       showResult($('qr-result'), error.message, true);
     } finally {
       setLoading(button, false);
+      // Once a link is on screen it is the thing to press; this button drops
+      // back to being the way out of an expired code. Relabelled after
+      // setLoading, which restores the label it captured.
+      if (state.sessionId) {
+        button.textContent = 'Шинэ код авах';
+        button.classList.replace('btn-primary', 'btn-ghost');
+      }
     }
   });
 }
@@ -105,6 +133,16 @@ function initLogout() {
       state.phoneLinked = false;
       state.authorizedUniverseIds = [];
       state.sessionId = null;
+      clearTimeout(state.authPollTimer);
+
+      // The old code was spent signing in, so put the card back the way a
+      // first-time visitor finds it rather than leaving a dead link on it.
+      $('auth-methods').hidden = true;
+      $('qr-image').hidden = true;
+      $('qr-image').removeAttribute('src');
+      $('oauth-link').href = '#';
+      $('generate-qr-btn').textContent = 'Roblox-оор нэвтрэх';
+      $('generate-qr-btn').classList.replace('btn-ghost', 'btn-primary');
 
       resetOrderPanel();
       setAccountMenuOpen(false);
@@ -129,5 +167,6 @@ function initLogout() {
 
 export function initAuth() {
   initQrCode();
+  initReturnCheck();
   initLogout();
 }

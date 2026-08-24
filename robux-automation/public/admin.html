@@ -159,21 +159,23 @@
     <details class="stub-toggle" open>
       <summary>Данс</summary>
       <div class="details-body">
-        <form id="bank-form">
+        <p class="hint">Захиалагч эдгээрийн аль нэг рүү шилжүүлнэ. Хэд хэдэн банктай байвал өөрийн банк руугаа шилжүүлж чадна. Дээд талынх нь эхэлж харагдана.</p>
+        <div class="editable-list" id="bank-accounts-list"></div>
+        <div class="inline-form">
           <div class="field">
             <label for="bank-name-input">Банк</label>
-            <input id="bank-name-input" type="text" placeholder="Жишээ: Хаан банк" required>
+            <input id="bank-name-input" type="text" placeholder="Жишээ: Хаан банк">
           </div>
           <div class="field">
             <label for="bank-account-input">Дансны дугаар</label>
-            <input id="bank-account-input" type="text" inputmode="numeric" placeholder="Жишээ: 5001234567" required>
+            <input id="bank-account-input" type="text" inputmode="numeric" placeholder="Жишээ: 5001234567">
           </div>
           <div class="field">
             <label for="bank-holder-input">Данс эзэмшигчийн нэр</label>
-            <input id="bank-holder-input" type="text" placeholder="Жишээ: Г. Бат-Эрдэнэ" required>
+            <input id="bank-holder-input" type="text" placeholder="Жишээ: Г. Бат-Эрдэнэ">
           </div>
-          <button class="btn" type="submit">Дансны мэдээлэл хадгалах</button>
-        </form>
+          <button class="btn" id="add-bank-btn" type="button">Данс нэмэх</button>
+        </div>
         <p id="bank-result" class="notice" role="status" aria-live="polite" hidden></p>
       </div>
     </details>
@@ -203,6 +205,25 @@
           <button class="btn btn-danger" id="disconnect-bot-btn" type="button">Bot салгах</button>
         </div>
         <p id="bot-result" class="notice" role="status" aria-live="polite" hidden></p>
+
+        <div class="field field-spaced">
+          <label>Bot-ийн 2FA</label>
+          <p class="hint" id="bot-2fa-status">Тохируулаагүй байна.</p>
+        </div>
+        <div class="field">
+          <label for="bot-totp-input">Authenticator секрет (base32)</label>
+          <input id="bot-totp-input" type="password" autocomplete="off" placeholder="Жишээ: JBSWY3DPEHPK3PXP">
+          <p class="hint">
+            Roblox дээр 2FA тохируулахдаа QR-ийн доор гардаг түлхүүр. Payout автоматаар явдаг тул
+            кодыг сервер өөрөө үүсгэнэ. Энэ түлхүүр хадгалагдсанаар өгөгдлийн сан рүү нэвтэрсэн
+            хүн bot-ийн 2FA-г давж чадна гэдгийг анхаарна уу.
+          </p>
+        </div>
+        <div class="action-buttons">
+          <button class="btn" id="save-bot-2fa-btn" type="button">2FA секрет хадгалах</button>
+          <button class="btn btn-danger" id="clear-bot-2fa-btn" type="button">2FA секрет устгах</button>
+        </div>
+        <p id="bot-2fa-result" class="notice" role="status" aria-live="polite" hidden></p>
       </div>
     </details>
 

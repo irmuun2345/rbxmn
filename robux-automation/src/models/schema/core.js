@@ -3,7 +3,7 @@
 // Runs first. `settings` in particular has to exist before any other file
 // seeds a default into it — see the ordering note in index.js.
 
-const { run, seedSettings } = require('./helpers');
+const { run, addMissingColumns, seedSettings } = require('./helpers');
 
 module.exports = function applyCoreSchema(db) {
   run(db, 'users table', `CREATE TABLE IF NOT EXISTS users (
@@ -43,6 +43,16 @@ module.exports = function applyCoreSchema(db) {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (admin_id) REFERENCES admins (id)
   )`);
+
+  // The authenticator seed for bots with 2-step verification switched on.
+  // Payouts run in a background poller with nobody watching, so a challenge
+  // has to be answerable without a human — see services/totp.js.
+  //
+  // Held encrypted, like the cookie beside it. Added by ALTER because the
+  // table above predates it.
+  addMissingColumns(db, 'seller_bots', [
+    ['totp_secret', 'TEXT']
+  ]);
 
   run(db, 'settings table', `CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,

@@ -18,11 +18,11 @@ function getSettingValue(dbHelpers, key) {
 // apart: a buyer joining today cannot be paid out today, so admission has to
 // happen as early as possible and independently of any delivery attempt.
 // Never throws for the ordinary "no request pending" case.
-async function admitPendingJoinRequest(dbHelpers, order, groupId, cookie) {
+async function admitPendingJoinRequest(dbHelpers, order, groupId, cookie, totpSecret = null) {
   const joinRequest = await RobloxGroup.getJoinRequest(groupId, order.roblox_id, cookie);
   if (!joinRequest) return false;
 
-  await RobloxGroup.acceptJoinRequest(groupId, order.roblox_id, cookie);
+  await RobloxGroup.acceptJoinRequest(groupId, order.roblox_id, cookie, totpSecret);
   await recordAcceptedJoin(dbHelpers, order.user_id, order.roblox_id, groupId);
 
   // The join timestamp is the start of the payout clock, so the moment it's
@@ -68,7 +68,7 @@ async function attemptGroupDelivery(dbHelpers, orderId) {
   // Step 1 — let them in if they're waiting at the door. This starts the
   // membership clock and is worth doing even though it can't possibly make
   // today's payout succeed.
-  await admitPendingJoinRequest(dbHelpers, order, groupId, bot.cookie);
+  await admitPendingJoinRequest(dbHelpers, order, groupId, bot.cookie, bot.totp_secret);
 
   // Step 2 — has the clock run long enough? checkEligibility also syncs the
   // local record against Roblox, so a member admitted just now is picked up
@@ -107,7 +107,7 @@ async function attemptGroupDelivery(dbHelpers, orderId) {
   const payoutRobux = order.delivered_robux || order.price;
 
   try {
-    await RobloxGroup.sendPayout(groupId, order.roblox_id, payoutRobux, bot.cookie);
+    await RobloxGroup.sendPayout(groupId, order.roblox_id, payoutRobux, bot.cookie, bot.totp_secret);
   } catch (error) {
     const detail = JSON.stringify(error.response?.data || error.message);
 

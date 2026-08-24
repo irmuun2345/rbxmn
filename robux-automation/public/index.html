@@ -163,16 +163,27 @@
           <span class="badge" id="auth-state">Холбогдоогүй</span>
         </div>
 
-        <p>QR кодыг камераар уншуулахад Roblox-ийн өөрийн нэвтрэх, зөвшөөрөх хуудас нээгдэнэ.</p>
-        <div class="qr-frame" id="qr-container">
-          <div>
-            <span class="qr-placeholder" aria-hidden="true">QR</span>
-            <span>Таны код энд гарна</span>
-          </div>
-        </div>
+        <p>Roblox-ийн өөрийн нэвтрэх, зөвшөөрөх хуудас нээгдэнэ. Нууц үгээ энэ сайт дээр оруулахгүй.</p>
         <div class="auth-actions">
-          <button class="btn btn-primary full" id="generate-qr-btn" type="button">Roblox QR үүсгэх</button>
+          <button class="btn btn-primary full" id="generate-qr-btn" type="button">Roblox-оор нэвтрэх</button>
         </div>
+
+        <!-- Filled in once /auth/qr answers. The link leads and the QR folds
+             away beneath it because most buyers arrive on a phone, and a phone
+             cannot photograph its own screen: the code is only readable by a
+             *second* device, so it is the fallback, not the front door. -->
+        <div class="auth-methods" id="auth-methods" hidden>
+          <a class="btn btn-primary oauth-link" id="oauth-link" href="#"
+             target="_blank" rel="noopener noreferrer">Roblox дээр нээх ↗</a>
+          <details class="qr-fallback" id="qr-fallback">
+            <summary>Өөр төхөөрөмжөөс нэвтрэх</summary>
+            <div class="qr-frame" id="qr-container">
+              <img id="qr-image" alt="Roblox OAuth зөвшөөрлийн QR код" hidden>
+              <span>Энэ кодыг өөр утас, компьютерийн камераар уншуулна уу.</span>
+            </div>
+          </details>
+        </div>
+
         <p id="qr-result" class="notice" role="status" aria-live="polite" hidden></p>
       </div>
     </section>
@@ -309,21 +320,11 @@
 
                 <p class="bonus-note" id="bonus-note" hidden></p>
 
-                <div class="copy-row">
-                  <span>Банк</span>
-                  <strong id="bank-name">—</strong>
-                  <button type="button" class="copy-btn" data-copy-target="bank-name">Хуулах</button>
-                </div>
-                <div class="copy-row">
-                  <span>Дансны дугаар</span>
-                  <strong id="bank-account">—</strong>
-                  <button type="button" class="copy-btn" data-copy-target="bank-account">Хуулах</button>
-                </div>
-                <div class="copy-row">
-                  <span>Хүлээн авагч</span>
-                  <strong id="bank-holder">—</strong>
-                  <button type="button" class="copy-btn" data-copy-target="bank-holder">Хуулах</button>
-                </div>
+                <!-- Rendered from the server's list — see bank-accounts.js.
+                     Any one of these accounts is fine; the buyer picks the one
+                     at their own bank so the transfer clears immediately. -->
+                <p class="hint">Доорх дансны аль нэг рүү шилжүүлнэ үү. Өөрийн банкаа сонговол шилжүүлэг шууд очно.</p>
+                <div class="bank-list" id="bank-list"></div>
 
                 <div class="calc-card field-spaced">
                   <label>Гүйлгээний утга (заавал бичнэ)</label>
@@ -382,21 +383,8 @@
               <p id="giftcard-create-result" class="notice" role="status" aria-live="polite" hidden></p>
 
               <div id="giftcard-payment-panel" hidden>
-                <div class="copy-row">
-                  <span>Банк</span>
-                  <strong id="giftcard-bank-name">—</strong>
-                  <button type="button" class="copy-btn" data-copy-target="giftcard-bank-name">Хуулах</button>
-                </div>
-                <div class="copy-row">
-                  <span>Дансны дугаар</span>
-                  <strong id="giftcard-bank-account">—</strong>
-                  <button type="button" class="copy-btn" data-copy-target="giftcard-bank-account">Хуулах</button>
-                </div>
-                <div class="copy-row">
-                  <span>Хүлээн авагч</span>
-                  <strong id="giftcard-bank-holder">—</strong>
-                  <button type="button" class="copy-btn" data-copy-target="giftcard-bank-holder">Хуулах</button>
-                </div>
+                <p class="hint">Доорх дансны аль нэг рүү шилжүүлнэ үү.</p>
+                <div class="bank-list" id="giftcard-bank-list"></div>
                 <div class="calc-card field-spaced">
                   <label>Гүйлгээний утга (заавал бичнэ)</label>
                   <span class="calc-total tabular full" id="giftcard-payment-reference">—</span>

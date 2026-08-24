@@ -27,6 +27,7 @@ const repositories = [
   require('./repositories/receipts'),
   require('./repositories/gift-cards'),
   require('./repositories/payments'),
+  require('./repositories/bank-accounts'),
   require('./repositories/admins'),
   require('./repositories/seller-bots'),
   require('./repositories/settings'),

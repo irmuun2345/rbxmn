@@ -24,4 +24,10 @@ module.exports = function registerAdminGroupRoutes(app, { adminController }, { r
   app.get('/admin/bot', requireAdminAuth, adminController.getBotStatus.bind(adminController));
   app.put('/admin/bot', requireAdminAuth, adminController.updateBotAccount.bind(adminController));
   app.delete('/admin/bot', requireAdminAuth, adminController.removeBotAccount.bind(adminController));
+
+  // The authenticator seed that answers the bot's 2-step verification, set
+  // separately from the cookie because 2FA is usually switched on after the
+  // account is already connected. Write-only for the same reason as the
+  // cookie: the dashboard is told whether one exists, never what it is.
+  app.put('/admin/bot/two-factor', requireAdminAuth, adminController.updateBotTwoFactor.bind(adminController));
 };

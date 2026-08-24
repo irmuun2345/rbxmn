@@ -24,6 +24,10 @@ export async function loadBotStatus() {
     $('bot-status').textContent = data.connected
       ? `Холбогдсон: ${data.username} (ID ${data.robloxId})`
       : 'Холбогдоогүй байна.';
+    // The server reports whether a secret exists, never what it is.
+    $('bot-2fa-status').textContent = data.twoFactorReady
+      ? 'Тохируулсан. Roblox 2FA асуувал систем өөрөө хариулна.'
+      : 'Тохируулаагүй байна. Bot дээр 2FA асаалттай бол payout зогсоно.';
   } catch (error) {
     $('bot-status').textContent = error.message;
   }
@@ -94,6 +98,49 @@ function initBotAccount() {
       showResult($('bot-result'), error.message, true);
     } finally {
       setLoading(button, false);
+    }
+  });
+
+  $('save-bot-2fa-btn').addEventListener('click', async () => {
+    const totpSecret = $('bot-totp-input').value.trim();
+    if (!totpSecret) {
+      showResult($('bot-2fa-result'), 'Authenticator секретээ оруулна уу.', true);
+      return;
+    }
+    const button = $('save-bot-2fa-btn');
+    setLoading(button, true, 'Хадгалж байна…');
+    try {
+      await request('/admin/bot/two-factor', jsonBody('PUT', { totpSecret }), '2FA секрет хадгалж чадсангүй.');
+      // Same reasoning as the cookie above: this is the seed to the bot's
+      // second factor, and it has no business sitting in a DOM node.
+      $('bot-totp-input').value = '';
+      showResult($('bot-2fa-result'), '2FA секрет хадгалагдлаа.');
+      await loadBotStatus();
+    } catch (error) {
+      showResult($('bot-2fa-result'), error.message, true);
+    } finally {
+      setLoading(button, false);
+    }
+  });
+
+  $('clear-bot-2fa-btn').addEventListener('click', async () => {
+    const confirmed = await confirmDialog(
+      '2FA секрет устгах',
+      'Bot дээр 2FA асаалттай хэвээр бол дараагийн payout амжилтгүй болж, захиалга дараалалд буцна.',
+      { confirmLabel: 'Устгах', danger: true }
+    );
+    if (!confirmed) return;
+
+    const button = $('clear-bot-2fa-btn');
+    button.disabled = true;
+    try {
+      await request('/admin/bot/two-factor', jsonBody('PUT', { totpSecret: '' }), '2FA секрет устгаж чадсангүй.');
+      showResult($('bot-2fa-result'), '2FA секрет устгагдлаа.');
+      await loadBotStatus();
+    } catch (error) {
+      showResult($('bot-2fa-result'), error.message, true);
+    } finally {
+      button.disabled = false;
     }
   });
 

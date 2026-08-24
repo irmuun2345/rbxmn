@@ -27,6 +27,9 @@ const ACTION_LABELS = {
   'group.join_accepted': 'Группд элсүүлсэн',
   'group.membership_reset': 'Гишүүнчлэл шинэчилсэн',
   'setting.updated': 'Тохиргоо өөрчлөгдсөн',
+  'bank_account.created': 'Данс нэмсэн',
+  'bank_account.updated': 'Данс зассан',
+  'bank_account.deleted': 'Данс устгасан',
   'package.created': 'Багц үүсгэсэн',
   'package.updated': 'Багц зассан',
   'package.deleted': 'Багц устгасан',
@@ -34,7 +37,9 @@ const ACTION_LABELS = {
   'event.deleted': 'Эвент устгасан',
   'phone.unlinked': 'Утас салгасан',
   'bot.account_updated': 'Bot аккаунт солигдсон',
-  'bot.account_removed': 'Bot аккаунт салгасан'
+  'bot.account_removed': 'Bot аккаунт салгасан',
+  'bot.two_factor_updated': 'Bot 2FA тохиргоо солигдсон',
+  'bot.two_factor_solved': 'Bot 2FA challenge давсан'
 };
 
 // Actions that either move money or change who can receive it. Marked so

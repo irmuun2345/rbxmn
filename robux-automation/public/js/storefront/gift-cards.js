@@ -5,6 +5,7 @@ import { request, jsonBody } from '../common/api.js';
 import { formatMnt, formatNumber } from '../common/format.js';
 import { state } from './state.js';
 import { loadProfile } from './profile.js';
+import { renderBankAccounts } from './bank-accounts.js';
 
 function statusLabel(status) {
   if (status === 'awaiting_payment') return 'Төлбөр хүлээж байна';
@@ -51,9 +52,7 @@ export function initGiftCards() {
         'Бэлгийн карт үүсгэж чадсангүй.'
       );
       $('giftcard-create-form').hidden = true;
-      $('giftcard-bank-name').textContent = data.bank?.name || 'Тохируулаагүй';
-      $('giftcard-bank-account').textContent = data.bank?.accountNumber || 'Тохируулаагүй';
-      $('giftcard-bank-holder').textContent = data.bank?.accountHolder || 'Тохируулаагүй';
+      renderBankAccounts($('giftcard-bank-list'), data.banks, 'giftcard-bank');
       $('giftcard-payment-reference').textContent = data.paymentReference;
       $('giftcard-payment-amount').textContent = formatMnt(data.amountMnt);
       $('giftcard-payment-panel').hidden = false;

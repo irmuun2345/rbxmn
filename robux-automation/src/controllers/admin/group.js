@@ -1,6 +1,7 @@
 // The group-payout delivery route — settings, the membership clock, and the bot account.
 const RobloxGroup = require('../../services/roblox-group');
 const { getRequiredDays } = require('../../services/group-eligibility');
+const { isValidTotpSecret } = require('../../services/totp');
 const { ACTIONS, recordAdminAction } = require('../../services/audit');
 
 module.exports = {
@@ -160,7 +161,10 @@ module.exports = {
         success: true,
         connected: Boolean(bot),
         username: bot?.username || null,
-        robloxId: bot?.roblox_id || null
+        robloxId: bot?.roblox_id || null,
+        // Whether a challenge can be answered without a human. Never the
+        // secret itself — this endpoint is read by a browser.
+        twoFactorReady: Boolean(bot?.totp_secret)
       });
     } catch (error) {
       console.error('Get bot status error:', error);
@@ -174,19 +178,31 @@ module.exports = {
       return res.status(400).json({ success: false, error: 'Bot аккаунтын .ROBLOSECURITY cookie-г оруулна уу.' });
     }
 
+    // Optional. Omitting it on a cookie refresh keeps whatever is already
+    // stored — see upsertSellerBot — so an admin replacing an expired cookie
+    // does not have to re-enter their authenticator seed as well.
+    const rawSecret = String(req.body.totpSecret || '').trim();
+    if (rawSecret && !isValidTotpSecret(rawSecret)) {
+      return res.status(400).json({
+        success: false,
+        error: '2FA секрет буруу байна. Authenticator тохируулахад өгсөн base32 түлхүүрийг оруулна уу.'
+      });
+    }
+
     try {
       const { robloxId, username } = await RobloxGroup.getAuthenticatedBotUser(cookie);
 
       await new Promise((resolve, reject) => {
-        this.dbHelpers.upsertSellerBot(req.session?.adminId, username, robloxId, cookie, (error) => (
-          error ? reject(error) : resolve()
-        ));
+        this.dbHelpers.upsertSellerBot(
+          req.session?.adminId, username, robloxId, cookie, rawSecret || null,
+          (error) => (error ? reject(error) : resolve())
+        );
       });
 
       // Records that the bot account changed and which account it now is —
-      // never the cookie itself.
+      // never the cookie or the 2FA secret, only whether one was supplied.
       await recordAdminAction(this.dbHelpers, req, ACTIONS.BOT_ACCOUNT_UPDATED, {
-        entityType: 'seller_bot', details: { username, robloxId }
+        entityType: 'seller_bot', details: { username, robloxId, twoFactorSubmitted: Boolean(rawSecret) }
       });
       res.json({ success: true, message: 'Bot аккаунт холбогдлоо.', username, robloxId });
     } catch (error) {
@@ -195,6 +211,48 @@ module.exports = {
         success: false,
         error: 'Bot аккаунтад холбогдож чадсангүй. Cookie хугацаа дууссан эсвэл буруу байж болзошгүй.'
       });
+    }
+  },
+
+  // Enrolling or clearing the authenticator seed on its own, without touching
+  // the cookie. Roblox 2FA is usually switched on after the bot is already
+  // connected, and re-pasting a session cookie to add it would be silly.
+  async updateBotTwoFactor(req, res) {
+    const rawSecret = String(req.body.totpSecret || '').trim();
+    if (rawSecret && !isValidTotpSecret(rawSecret)) {
+      return res.status(400).json({
+        success: false,
+        error: '2FA секрет буруу байна. Authenticator тохируулахад өгсөн base32 түлхүүрийг оруулна уу.'
+      });
+    }
+
+    try {
+      const bot = await new Promise((resolve, reject) => {
+        this.dbHelpers.getActiveSellerBot((error, row) => (error ? reject(error) : resolve(row)));
+      });
+      if (!bot) {
+        return res.status(404).json({ success: false, error: 'Холбогдсон bot аккаунт алга.' });
+      }
+
+      await new Promise((resolve, reject) => {
+        this.dbHelpers.updateSellerBotTotpSecret(bot.id, rawSecret || null, (error) => (
+          error ? reject(error) : resolve()
+        ));
+      });
+
+      await recordAdminAction(this.dbHelpers, req, ACTIONS.BOT_TWO_FACTOR_UPDATED, {
+        entityType: 'seller_bot',
+        entityId: bot.id,
+        details: { username: bot.username, enabled: Boolean(rawSecret) }
+      });
+      res.json({
+        success: true,
+        message: rawSecret ? '2FA секрет хадгалагдлаа.' : '2FA секрет устгагдлаа.',
+        twoFactorReady: Boolean(rawSecret)
+      });
+    } catch (error) {
+      console.error('Update bot 2FA error:', error);
+      res.status(500).json({ success: false, error: '2FA секретийг хадгалж чадсангүй.' });
     }
   },
 

@@ -13,14 +13,19 @@
   font-size: 0.9rem;
 }
 
-/* Was full-panel-width, which at desktop produced a ~1300px dashed rectangle
-   with a 42px placeholder floating in the middle of it. Capped to roughly the
-   size of the QR it will hold and centred. */
+/* Both sign-in routes, sharing the width of the button that revealed them. */
+.auth-methods {
+  width: min(320px, 100%);
+  margin: 1rem auto 0;
+}
+
+/* Sized by its parent rather than the panel: full-panel-width put a ~1300px
+   dashed rectangle around a 170px code at desktop. */
 .qr-frame {
   display: grid;
-  width: min(320px, 100%);
-  min-height: 240px;
-  margin: 1rem auto;
+  width: 100%;
+  min-height: 200px;
+  margin: 0.85rem auto 0;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 1.2rem;
@@ -28,12 +33,6 @@
   background: rgba(255, 255, 255, 0.012);
   place-items: center;
   text-align: center;
-}
-
-.qr-frame > div {
-  display: grid;
-  gap: 0.15rem;
-  justify-items: center;
 }
 
 .auth-actions {
@@ -50,23 +49,41 @@
   border-radius: 4px;
 }
 
-.qr-placeholder {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  margin: 0 auto 0.6rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 50%;
-  place-items: center;
-  color: var(--gold);
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  font-weight: 700;
-}
-
 .oauth-link {
   width: 100%;
+}
+
+/* Folded shut by default; auth.js opens it on pointer devices, where a second
+   screen with a camera is the likely way in. */
+.qr-fallback {
   margin-top: 0.85rem;
+}
+
+.qr-fallback > summary {
+  color: var(--faint);
+  font-size: 0.86rem;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  /* Both properties are needed: the standard one, and the WebKit pseudo
+     element that Safari still uses for the disclosure triangle. */
+  list-style: none;
+}
+
+.qr-fallback > summary::-webkit-details-marker {
+  display: none;
+}
+
+.qr-fallback > summary::after {
+  content: ' ▾';
+}
+
+.qr-fallback[open] > summary::after {
+  content: ' ▴';
+}
+
+.qr-fallback > summary:hover {
+  color: var(--gold);
 }
 
 .steps {

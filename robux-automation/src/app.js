@@ -47,6 +47,12 @@ if (!SESSION_SECRET || SESSION_SECRET === 'replace-with-a-long-random-value') {
   console.warn('WARNING: SESSION_SECRET is unset — using a random per-restart secret (development only).');
 }
 
+// Encrypts the bot's Roblox cookie and authenticator seed in the database.
+// Same rule as above: without it, a copied robux.db hands someone the bot
+// account outright, so production refuses to boot rather than store them in
+// the clear.
+require('./services/credentials').assertCredentialKey();
+
 // ---------------------------------------------------------------------------
 // Proxy awareness
 // ---------------------------------------------------------------------------

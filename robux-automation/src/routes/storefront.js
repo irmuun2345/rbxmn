@@ -10,8 +10,9 @@ module.exports = function registerStorefrontRoutes(app, { adminController }) {
   // dashboard writes; the read side just has no auth requirement.
   app.get('/pricing', publicData, adminController.getPricing.bind(adminController));
 
-  // Bank transfer details, shown once an order is created.
-  app.get('/bank-account', publicData, adminController.getBankAccount.bind(adminController));
+  // Bank transfer details, shown once an order is created. Every active
+  // account, so the buyer can pick one at their own bank.
+  app.get('/bank-account', publicData, adminController.listBankAccounts.bind(adminController));
 
   // Group info, shown for the group-payout delivery method.
   app.get('/group-info', publicData, adminController.getGroupSettings.bind(adminController));
