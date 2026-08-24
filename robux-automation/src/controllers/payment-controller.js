@@ -2,6 +2,7 @@ const qpay = require('../services/qpay');
 const orders = require('../services/orders');
 const { applyConfirmedPayment } = require('../services/payments');
 const { attemptGroupDelivery } = require('../services/group-delivery');
+const { describeDeliveryFailure } = require('../services/delivery-errors');
 const { ORDER_STATUS } = require('../services/order-status');
 
 class PaymentController {
@@ -120,9 +121,10 @@ class PaymentController {
           await attemptGroupDelivery(this.dbHelpers, result.entityId);
         } catch (deliveryError) {
           if (deliveryError.code !== 'WRONG_METHOD' && deliveryError.code !== 'GROUP_NOT_CONFIGURED') {
+            const failure = describeDeliveryFailure(deliveryError);
             console.error(
-              `Immediate delivery after QPay payment for order #${result.entityId}:`,
-              deliveryError.response?.data || deliveryError.message
+              `Immediate delivery after QPay payment for order #${result.entityId} `
+              + `[${failure.action}]: ${failure.message}`
             );
           }
         }

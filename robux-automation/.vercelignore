@@ -1,0 +1,33 @@
+# What must never be uploaded into a deployment bundle.
+#
+# .gitignore already keeps these out of the repository; this file is the
+# second lock, because `vercel deploy` uploads the working directory rather
+# than the committed tree — an untracked robux.db or uploads/ sitting in a
+# developer's checkout would otherwise be shipped to production.
+
+node_modules/
+
+# Secrets belong in Vercel's environment variables, never in the bundle.
+config/.env
+.env
+*.pem
+*.key
+
+# The old SQLite databases. Real customer records, and no longer read by
+# anything — the app runs on Postgres now.
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Customers' bank documents. On Vercel these live in Blob storage; a local
+# copy must not be baked into the deployment.
+uploads/
+
+# Not needed at runtime.
+tests/
+*.log
+.playwright-cli/
+.claude/

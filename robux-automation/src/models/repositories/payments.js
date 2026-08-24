@@ -1,3 +1,4 @@
+const { isUniqueViolation } = require('../db-errors');
 // Gateway confirmations. The UNIQUE index behind claimPayment is what makes a
 // replayed webhook harmless.
 module.exports = (db) => ({
@@ -23,7 +24,7 @@ module.exports = (db) => ({
       if (err) {
         // A duplicate is the expected, healthy outcome of a retried webhook —
         // reported rather than thrown so callers can no-op quietly.
-        if (String(err.message || '').includes('UNIQUE')) {
+        if (isUniqueViolation(err)) {
           return callback(null, { duplicate: true });
         }
         return callback(err, null);

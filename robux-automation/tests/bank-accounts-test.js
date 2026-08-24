@@ -1,11 +1,8 @@
 const assert = require('assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const sqlite3 = require('sqlite3');
 
 const applySchema = require('../src/models/schema');
 const createBankAccountRepository = require('../src/models/repositories/bank-accounts');
+const { temporaryDatabase, run, all, discard, settle } = require('./helpers/temporary-database');
 
 // Several bank accounts, so a buyer can transfer inside their own bank instead
 // of waiting overnight for an interbank clear.
@@ -15,45 +12,12 @@ const createBankAccountRepository = require('../src/models/repositories/bank-acc
 // would show customers an empty payment panel — an order they cannot pay,
 // arriving with no error anywhere.
 
-function temporaryDatabase() {
-  const file = path.join(os.tmpdir(), `rbx-bank-test-${process.pid}-${Date.now()}.db`);
-  return { file, db: new sqlite3.Database(file) };
-}
-
-const run = (db, sql, params = []) => new Promise((resolve, reject) => {
-  db.run(sql, params, (error) => (error ? reject(error) : resolve()));
-});
-
-const all = (db, sql, params = []) => new Promise((resolve, reject) => {
-  db.all(sql, params, (error, rows) => (error ? reject(error) : resolve(rows)));
-});
-
-// close() is asynchronous, and on Windows the file stays locked until it
-// finishes — deleting before then fails with EPERM.
-async function discard(db, file) {
-  await new Promise((resolve) => db.close(() => resolve()));
-  fs.rmSync(file, { force: true });
-}
-
-// applySchema returns before its work is done, and offers no completion
-// signal: it queues statements, some of which are queued by the callbacks of
-// earlier ones (a PRAGMA read, then the ALTERs it decides on).
-//
-// A statement run now lands behind everything queued so far, so waiting for
-// one drains a whole wave. Three waves covers the deepest nesting in
-// schema/, and beats sleeping on a guessed interval.
-async function settle(db) {
-  for (let wave = 0; wave < 3; wave += 1) {
-    await new Promise((resolve) => db.run('SELECT 1', () => resolve()));
-  }
-}
-
 async function testLegacyAccountIsCarriedOver() {
-  const { file, db } = temporaryDatabase();
+  const db = temporaryDatabase();
 
   try {
     // An install as it exists today: one account, held as three settings rows.
-    await run(db, 'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at DATETIME)');
+    await run(db, 'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMPTZ)');
     await run(db, 'INSERT INTO settings (key, value) VALUES (?, ?)', ['bank_name', 'Хаан банк']);
     await run(db, 'INSERT INTO settings (key, value) VALUES (?, ?)', ['bank_account_number', '5001234567']);
     await run(db, 'INSERT INTO settings (key, value) VALUES (?, ?)', ['bank_account_holder', 'Г. Бат-Эрдэнэ']);
@@ -67,7 +31,7 @@ async function testLegacyAccountIsCarriedOver() {
     assert.equal(accounts[0].bank_name, 'Хаан банк');
     assert.equal(accounts[0].account_number, '5001234567');
     assert.equal(accounts[0].account_holder, 'Г. Бат-Эрдэнэ');
-    assert.equal(accounts[0].is_active, 1, 'it must still be offered to buyers');
+    assert.equal(accounts[0].is_active, true, 'it must still be offered to buyers');
 
     // Booting again must not import it a second time — the storefront would
     // show the same account twice, growing by one on every restart.
@@ -77,15 +41,15 @@ async function testLegacyAccountIsCarriedOver() {
 
     console.log('  ✓ the single legacy account is carried over exactly once');
   } finally {
-    await discard(db, file);
+    await discard(db);
   }
 }
 
 async function testDeletedAccountsStayDeleted() {
-  const { file, db } = temporaryDatabase();
+  const db = temporaryDatabase();
 
   try {
-    await run(db, 'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at DATETIME)');
+    await run(db, 'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMPTZ)');
     await run(db, 'INSERT INTO settings (key, value) VALUES (?, ?)', ['bank_name', 'Хаан банк']);
     await run(db, 'INSERT INTO settings (key, value) VALUES (?, ?)', ['bank_account_number', '5001234567']);
     await run(db, 'INSERT INTO settings (key, value) VALUES (?, ?)', ['bank_account_holder', 'Г. Бат-Эрдэнэ']);
@@ -109,12 +73,12 @@ async function testDeletedAccountsStayDeleted() {
 
     console.log('  ✓ an account the admin deleted is not resurrected on restart');
   } finally {
-    await discard(db, file);
+    await discard(db);
   }
 }
 
 async function testOrderingAndActiveFiltering() {
-  const { file, db } = temporaryDatabase();
+  const db = temporaryDatabase();
 
   try {
     applySchema(db);
@@ -173,13 +137,13 @@ async function testOrderingAndActiveFiltering() {
     // discover by paying into a duplicate.
     await assert.rejects(
       create('Голомт банк', '1105558888'),
-      /UNIQUE constraint failed/,
+      /duplicate key value violates unique constraint/,
       'the same account must not be addable twice'
     );
 
     console.log('  ✓ accounts append, reorder, and deactivate without losing history');
   } finally {
-    await discard(db, file);
+    await discard(db);
   }
 }
 

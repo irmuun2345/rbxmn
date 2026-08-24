@@ -1,33 +1,23 @@
 const session = require('express-session');
 const { db } = require('../models/db');
+const { EXPRESS_SESSION_TABLE } = require('../models/schema/core');
 
 // express-session's default MemoryStore is explicitly not for production: it
 // leaks (nothing ever evicts an expired entry) and every restart logs every
-// admin out. connect-sqlite3 would be the obvious fix but it peer-depends on
-// sqlite3@5 while this project runs sqlite3@6, so the store is implemented
-// here against the connection the rest of the app already uses.
+// admin out. So the store is implemented here against the connection the rest
+// of the app already uses.
 //
 // Sessions live in their own table rather than the existing `sessions` one —
 // that table belongs to the Roblox OAuth QR handshake and has a different
 // shape and lifetime.
-const TABLE = 'express_sessions';
+//
+// The table itself is created by the schema layer, not here. It used to be
+// built at require() time, which on a serverless deployment meant every cold
+// start racing every other cold start to CREATE TABLE — see the note in
+// models/db.js.
+const TABLE = EXPRESS_SESSION_TABLE;
 
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS ${TABLE} (
-    sid TEXT PRIMARY KEY,
-    data TEXT NOT NULL,
-    expires_at INTEGER NOT NULL
-  )`, (error) => {
-    if (error) console.error('Error creating express_sessions table:', error.message);
-  });
-
-  db.run(`CREATE INDEX IF NOT EXISTS idx_express_sessions_expires
-    ON ${TABLE} (expires_at)`, (error) => {
-    if (error) console.error('Error indexing express_sessions:', error.message);
-  });
-});
-
-class SqliteSessionStore extends session.Store {
+class PostgresSessionStore extends session.Store {
   constructor({ ttlMs, sweepIntervalMs = 15 * 60 * 1000 }) {
     super();
     this.ttlMs = ttlMs;
@@ -35,6 +25,11 @@ class SqliteSessionStore extends session.Store {
     // Expired rows are removed on a timer as well as on read, because a
     // session that is never touched again would otherwise sit there forever.
     // unref() so this timer alone can't hold the process open.
+    //
+    // A serverless instance is frozen between requests, so this timer fires
+    // rarely there if at all. That is why sweep() is also called from the
+    // cron route, and why get() drops an expired row it reads: neither the
+    // correctness of expiry nor the cleanup depends on this interval.
     this.sweepTimer = setInterval(() => this.sweep(), sweepIntervalMs);
     if (typeof this.sweepTimer.unref === 'function') this.sweepTimer.unref();
   }
@@ -111,4 +106,4 @@ class SqliteSessionStore extends session.Store {
   }
 }
 
-module.exports = { SqliteSessionStore };
+module.exports = { PostgresSessionStore };

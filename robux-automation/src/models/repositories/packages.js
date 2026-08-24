@@ -9,7 +9,7 @@ module.exports = (db) => ({
 
   getPackages: (activeOnly, callback) => {
     const sql = activeOnly
-      ? `SELECT * FROM packages WHERE is_active = 1 ORDER BY sort_order ASC, robux_amount ASC`
+      ? `SELECT * FROM packages WHERE is_active = TRUE ORDER BY sort_order ASC, robux_amount ASC`
       : `SELECT * FROM packages ORDER BY sort_order ASC, robux_amount ASC`;
     db.all(sql, [], callback);
   },
@@ -20,7 +20,7 @@ module.exports = (db) => ({
 
   updatePackage: (id, robuxAmount, priceMnt, discountPercent, isActive, sortOrder, callback) => {
     const sql = `UPDATE packages SET robux_amount = ?, price_mnt = ?, discount_percent = ?, is_active = ?, sort_order = ? WHERE id = ?`;
-    db.run(sql, [robuxAmount, priceMnt, discountPercent, isActive ? 1 : 0, sortOrder, id], function(err) {
+    db.run(sql, [robuxAmount, priceMnt, discountPercent, Boolean(isActive), sortOrder, id], function(err) {
       callback(err, err ? null : { changes: this.changes });
     });
   },

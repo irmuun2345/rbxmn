@@ -12,15 +12,16 @@ module.exports = {
       });
 
       let groupName = null;
+      let ownerUsername = null;
       if (groupId) {
         try {
-          groupName = (await RobloxGroup.getGroupInfo(groupId)).name;
+          ({ name: groupName, ownerUsername } = await RobloxGroup.getGroupInfo(groupId));
         } catch {
           groupName = null;
         }
       }
 
-      res.json({ success: true, groupId, groupName });
+      res.json({ success: true, groupId, groupName, ownerUsername });
     } catch (error) {
       console.error('Get group settings error:', error);
       res.status(500).json({ success: false, error: 'Группын мэдээлэл авахад алдаа гарлаа.' });
@@ -39,14 +40,42 @@ module.exports = {
         return res.status(400).json({ success: false, error: 'Ийм ID-тай групп олдсонгүй.' });
       }
 
+      // Whether the bot owns this group is worth saying out loud, but not
+      // worth refusing over: a role granted "spend group funds" can operate a
+      // group it does not own, and only Roblox is the authority on that.
+      // Saved either way — the note just gives an admin somewhere to look
+      // first when deliveries start failing on permissions.
+      const bot = await new Promise((resolve, reject) => {
+        this.dbHelpers.getActiveSellerBot((error, row) => (error ? reject(error) : resolve(row)));
+      });
+
+      const botOwnsGroup = Boolean(bot?.roblox_id)
+        && Boolean(groupInfo.ownerId)
+        && String(bot.roblox_id) === groupInfo.ownerId;
+
+      const warning = bot?.roblox_id && !botOwnsGroup
+        ? `Анхаар: энэ группыг "${groupInfo.ownerUsername || groupInfo.ownerId}" эзэмшиж байна, `
+          + `bot аккаунт "${bot.username}" биш. Ботын role-д join request хүлээн авах болон `
+          + 'группын мөнгө зарцуулах эрх өгсөн эсэхийг шалгаарай.'
+        : null;
+
       await new Promise((resolve, reject) => {
         this.dbHelpers.setSetting('group_id', groupId, (error) => (error ? reject(error) : resolve()));
       });
 
       await recordAdminAction(this.dbHelpers, req, ACTIONS.SETTING_UPDATED, {
-        entityType: 'setting', details: { setting: 'group_id', groupId, groupName: groupInfo.name }
+        entityType: 'setting',
+        details: { setting: 'group_id', groupId, groupName: groupInfo.name, botOwnsGroup }
       });
-      res.json({ success: true, message: 'Группын мэдээлэл хадгалагдлаа.', groupId, groupName: groupInfo.name });
+      res.json({
+        success: true,
+        message: 'Группын мэдээлэл хадгалагдлаа.',
+        groupId,
+        groupName: groupInfo.name,
+        ownerUsername: groupInfo.ownerUsername,
+        botOwnsGroup,
+        warning
+      });
     } catch (error) {
       console.error('Update group settings error:', error);
       res.status(502).json({ success: false, error: 'Группын мэдээллийг Roblox-оос шалгаж чадсангүй.' });

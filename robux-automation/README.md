@@ -13,6 +13,14 @@ node server.js 3000
 
 Дараа нь `http://localhost:3000` хаягийг нээнэ.
 
+Өгөгдлийн сангийн сервер суулгах шаардлагагүй: `DATABASE_URL` хоосон үед апп
+**PGlite** ашиглана — WASM болгон хөрвүүлсэн жинхэнэ Postgres, процессын дотор
+ажиллана. Production-тай яг ижил SQL диалект тул локалд ажилласан query
+deploy хийсний дараа мөн ажиллана.
+
+Анхдагчаар in-memory тул restart бүрт цэвэрхэн эхэлнэ. Локал өгөгдлөө хадгалах
+бол `PGLITE_PATH=./.pglite` гэж заана.
+
 Fresh database дээр анхны админыг нэг удаа үүсгэнэ:
 
 ```powershell
@@ -35,7 +43,11 @@ node src/utils/setup-admin.js admin "хамгийн-багадаа-12-тэмдэ
 | `ROBLOX_OPEN_CLOUD_API_KEY` | Seller-ийн Game Pass эзэмшлийг шалгах Inventory API |
 | `ROBLOX_SELLER_USER_ID` | Seller аккаунтын Roblox user ID |
 | `QPAY_USERNAME` / `_PASSWORD` / `_INVOICE_CODE` | Автомат төлбөр баталгаажуулалт. Хоосон бол гар аргын банкны урсгал үлдэнэ |
-| `DATABASE_PATH` | Өгөгдлийн сангийн байршлыг солино. Тавихгүй бол `src/models/robux.db`. Зөвхөн тест болон хоёр дахь instance-д хэрэгтэй |
+| `DATABASE_URL` | Postgres холболтын мөр. **Production дээр заавал**. Хоосон бол PGlite (in-process Postgres) ажиллана — сервер суулгах шаардлагагүй |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token. Төлбөрийн баримт хадгална. **Vercel дээр заавал** — хоосон бол `uploads/receipts` рүү бичнэ |
+| `CRON_SECRET` | `/api/cron/group-orders`-ийн нууц үг. **Vercel дээр заавал** — байхгүй бол хүргэлтийн sweep хэзээ ч ажиллахгүй |
+| `SCHEMA_ON_BOOT` | `1` бол асах үед schema-г үүсгэнэ. Postgres дээр анхдагчаар унтраалттай (доорх тайлбарыг үзнэ үү) |
+| `PGLITE_PATH` | PGlite-ийн өгөгдлийг файлд хадгална. Тавихгүй бол in-memory (тест бүр цэвэр сангаас эхэлнэ) |
 
 ### Roblox OAuth тохиргоо
 
@@ -119,7 +131,12 @@ Bot аккаунт дээр 2-step verification асаалттай бол Roblox
 хэтрэхгүй.
 
 ```
-server.js                  # HTTP сервер асаана (порт, listener)
+server.js                  # HTTP сервер асаана (порт, listener) + хүргэлтийн poller
+api/index.js               # Vercel-ийн entrypoint (poller асаахгүй — cron ашиглана)
+vercel.json                # rewrite бүгдийг api/index рүү + cron хуваарь
+scripts/
+  migrate.js               # Schema-г үүсгээд гарна (deploy алхам)
+  import-sqlite.js         # Хуучин robux.db-г Postgres руу нэг удаа хуулна
 src/
   app.js                   # Express апп: middleware, static, fallback
   routes/
@@ -135,9 +152,11 @@ src/
   services/                # Бизнес логик (Roblox, QPay, үнэ, referral, түвшин)
   middleware/              # Аюулгүй байдлын header, rate limit, session store
   models/
-    connection.js          # SQLite холболт (нэг л газар). DATABASE_PATH-аар солино
+    connection.js          # Postgres холболт (нэг л газар). DATABASE_URL / PGlite
+    pg-adapter.js          # sqlite3-ийн callback API-г Postgres дээр хэрэгжүүлнэ
+    db-errors.js           # DB алдааг SQLSTATE-ээр таних (23505 = давхцал)
     schema/                # Хүснэгт үүсгэх + migration, домэйн тус бүрээр
-    repositories/          # Домэйн тус бүрийн query helper-ууд (16 файл)
+    repositories/          # Домэйн тус бүрийн query helper-ууд (17 файл)
     db.js                  # Композиц: бүгдийг нэг dbHelpers болгоно
 
 public/
@@ -161,22 +180,109 @@ nonce-той хэсэг хамгийн бага байна.
 (эсвэл хоёр mixin) ижил нэртэй helper тодорхойлвол сервер асахгүй — чимээгүйгээр
 буруу query ажиллахаас илүү нь шууд унасан нь дээр.
 
+## Vercel дээр байршуулах
+
+Апп SQLite файл дээр ажилладаг байсан. Vercel дээр тэр боломжгүй: serverless
+функцийн файл систем хүсэлт бүрт шинээр үүсдэг тул нэг хүсэлтэд бичсэн захиалга,
+төлбөр дараагийнхад алга болно. Тиймээс гурван зүйл гадагш гарсан:
+
+| Юу | Хаана очсон |
+| --- | --- |
+| Өгөгдлийн сан | Postgres (Neon эсвэл Vercel Postgres) |
+| Төлбөрийн баримт | Vercel Blob, `access: 'private'` — зөвхөн админы route-аар уншигдана |
+| Хүргэлтийн poller | Vercel Cron → `/api/cron/group-orders` |
+
+### 1. Postgres үүсгэх
+
+[Neon](https://neon.tech) дээр сан үүсгээд connection string-ийг хуулна
+(`?sslmode=require` -тэй). Vercel Postgres бол Storage табаас `POSTGRES_URL`.
+
+### 2. Blob store үүсгэх
+
+Vercel project → **Storage** → **Create Blob store**. `BLOB_READ_WRITE_TOKEN`
+автоматаар орчны хувьсагч болно.
+
+### 3. Орчны хувьсагчид
+
+Vercel project → **Settings** → **Environment Variables**. `config/.env`-д
+байгаа бүгдийг оруулаад, дараах гурвыг нэмнэ:
+
+```
+DATABASE_URL=postgresql://...        # Neon-ы connection string
+BLOB_READ_WRITE_TOKEN=...            # Blob store үүсгэхэд автоматаар нэмэгдэнэ
+CRON_SECRET=...                      # randomBytes(32).toString('base64url')
+NODE_ENV=production
+```
+
+`DATABASE_URL`-ийг **Build** орчинд бас идэвхжүүлнэ — schema нь build дээр
+үүсдэг (доороос үзнэ үү).
+
+`ROBLOX_OAUTH_REDIRECT_URI`-г шинэ домэйнд тааруулж, Roblox Creator Dashboard
+дээр мөн шинэчлэхээ мартуузай.
+
+### 4. Deploy
+
+```powershell
+npx vercel --prod
+```
+
+`vercel-build` script нь `npm run migrate`-г ажиллуулж schema-г үүсгэнэ.
+
+**Яагаад schema-г асах үед үүсгэдэггүй вэ:** cold start бүр 40 орчим
+`CREATE TABLE` дахин илгээнэ, зэрэг эхэлсэн хоёр instance нэг нэгэндээ мөргөж
+`pg_type` дээр duplicate key алдаа өгнө — тэр нь амьд хүсэлтийг унагаана.
+Тиймээс migration нь deploy алхам болсон. Урт хугацаанд ажилладаг сервер дээр
+`SCHEMA_ON_BOOT=1` тавибал хуучин байдлаараа ажиллана.
+
+### 5. Хуучин өгөгдлөө зөөх
+
+`src/models/robux.db` дотор бодит захиалга, хэрэглэгч байгаа бол:
+
+```powershell
+$env:DATABASE_URL="postgresql://..."
+npm run migrate
+node scripts/import-sqlite.js --dry-run   # эхлээд юу хуулагдахыг харна
+node scripts/import-sqlite.js
+```
+
+Session-ы хүснэгтүүдийг зориудаар хуулдаггүй — тэдгээр нь нэг өдрийн дотор
+хугацаа нь дуусдаг амьд нэвтрэлтийн төлөв.
+
+Скрипт нь дуусахдаа id sequence-үүдийг тааруулна. Үүнгүйгээр дараагийн шинэ
+бичлэг id 1-ийг дахин ашиглах гэж оролдоод primary key дээр унана.
+
+### Cron-ы хуваарь ба тарифын хязгаар
+
+`vercel.json` дотор sweep минут тутам ажиллахаар тохируулсан (хуучин poller 90
+секунд тутам байсан):
+
+```json
+"crons": [{ "path": "/api/cron/group-orders", "schedule": "* * * * *" }]
+```
+
+**Hobby тариф дээр cron өдөрт нэг л удаа ажиллана.** Тэр тохиолдолд группын
+захиалга өдөрт нэг удаа хүргэгдэнэ — техникийн хувьд ажиллаж байгаа ч
+худалдан авагчийн хувьд хүлээх хугацаа хэт урт. Минут тутмын хуваарь **Pro
+тариф** шаардана. Хэрэв Pro авах бодолгүй бол урт хугacаанд ажилладаг хост
+(Railway, Render, Fly.io) дээр `npm start`-аар асаавал доторх poller хэвээрээ
+90 секунд тутам ажиллана.
+
+`maxDuration` 60 секунд болгосон: sweep нь хүлээгдэж буй захиалга бүрээр
+дараалан явж, тус бүрд Roblox руу хэд хэдэн хүсэлт тавьдаг.
+
 ## Тест
 
 ```powershell
 npm test
 ```
 
-8 suite: OAuth урсгал, үнийн тохиргоо, эвентийн цонх, payout аюулгүй байдал,
-бэлгийн картын redemption, auth hardening, төлбөрийн тааруулалт, аюулгүй
-байдлын header/rate limit.
+10 suite: OAuth урсгал, үнийн тохиргоо, эвентийн цонх, payout аюулгүй байдал,
+bot 2FA, банкны данс, бэлгийн картын redemption, auth hardening, төлбөрийн
+тааруулалт, аюулгүй байдлын header/rate limit.
 
-Тест бодит өгөгдлийн санг хөндөхгүй байлгах бол `DATABASE_PATH`-аар түр файл
-заана:
-
-```powershell
-$env:DATABASE_PATH="$env:TEMP\rbx-test.db"; npm test
-```
+Тест бодит өгөгдлийн санг хөндөх боломжгүй: `DATABASE_URL` тавиагүй үед процесс
+бүр өөрийн in-memory PGlite сангаар асдаг тул суурь нь үргэлж цэвэр байна.
+Хуучин `DATABASE_PATH` хувьсагч байхгүй болсон.
 
 ## Гол endpoint-ууд
 

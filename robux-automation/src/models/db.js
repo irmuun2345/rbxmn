@@ -11,7 +11,7 @@
 // re-architecting: the seam moves, the contract does not.
 //
 // Adding a domain means adding a file and one line below.
-const { db } = require('./connection');
+const { db, driver } = require('./connection');
 const applySchema = require('./schema');
 
 const repositories = [
@@ -34,7 +34,29 @@ const repositories = [
   require('./repositories/events')
 ];
 
-applySchema(db);
+// Whether requiring this module also builds the schema.
+//
+// Against PGlite it must: that database is in-memory, so it is empty on every
+// boot and nothing would work without this.
+//
+// Against a real Postgres server it must not, by default. Two reasons, both
+// specific to running serverless:
+//
+//   1. Every cold start would re-issue ~40 CREATE TABLE / ALTER / seed
+//      statements to answer one HTTP request.
+//   2. Concurrent cold starts would issue them *at the same time*. Postgres
+//      does not serialise CREATE TABLE IF NOT EXISTS against itself — racing
+//      instances fail with a duplicate key error on pg_type, and the loser
+//      takes a live request down with it.
+//
+// So migrations become a deploy step (`npm run migrate`, wired to the Vercel
+// build command) and boot just connects. SCHEMA_ON_BOOT=1 forces the old
+// behaviour for a local server where a deploy step would be a nuisance.
+const schemaOnBoot = driver === 'pglite' || process.env.SCHEMA_ON_BOOT === '1';
+
+if (schemaOnBoot) {
+  applySchema(db);
+}
 
 // A name defined by two repositories would silently shadow one of them, and
 // the loser would be whichever happened to be listed second. Cheap to check
@@ -49,4 +71,4 @@ repositories.forEach((createRepository) => {
   });
 });
 
-module.exports = { db, dbHelpers };
+module.exports = { db, dbHelpers, applySchema, driver };

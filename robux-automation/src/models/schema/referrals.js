@@ -14,32 +14,35 @@ module.exports = function applyReferralSchema(db) {
   // without changing anything for everyone else. NULL means "use the global
   // setting", which is different from 0 ("this creator earns nothing").
   run(db, 'referral_codes table', `CREATE TABLE IF NOT EXISTS referral_codes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL UNIQUE,
     code TEXT NOT NULL UNIQUE,
-    is_influencer BOOLEAN NOT NULL DEFAULT 0,
+    is_influencer BOOLEAN NOT NULL DEFAULT FALSE,
     bonus_percent_override REAL,
     commission_percent_override REAL,
-    is_active BOOLEAN NOT NULL DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   )`);
 
-  // Uppercase is enforced on write, but a NOCASE index means a lookup can
-  // never be defeated by a casing trick either.
+  // Uppercase is enforced on write, but a case-insensitive index means a
+  // lookup can never be defeated by a casing trick either. Postgres has no
+  // NOCASE collation, so the index is on LOWER(code) — the lookup in
+  // getReferralCodeByCode is written to match it exactly, which is what lets
+  // the planner use it.
   run(db, 'referral code index',
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_referral_codes_code_nocase
-     ON referral_codes (code COLLATE NOCASE)`);
+     ON referral_codes (LOWER(code))`);
 
   // Who referred whom. UNIQUE on referee_user_id makes the binding permanent
   // and singular: a customer belongs to exactly one creator, forever, and
   // cannot be re-attributed to whoever is running the best promo this week.
   run(db, 'referral_attributions table', `CREATE TABLE IF NOT EXISTS referral_attributions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     referee_user_id INTEGER NOT NULL UNIQUE,
     referral_code_id INTEGER NOT NULL,
     referrer_user_id INTEGER NOT NULL,
-    bound_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    bound_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (referee_user_id) REFERENCES users (id),
     FOREIGN KEY (referral_code_id) REFERENCES referral_codes (id)
   )`);
@@ -52,7 +55,7 @@ module.exports = function applyReferralSchema(db) {
   // 'credited' rows count towards a balance, so an approved-but-undelivered
   // order — or one that later fails — never pays anyone.
   run(db, 'referral_earnings table', `CREATE TABLE IF NOT EXISTS referral_earnings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     referral_code_id INTEGER NOT NULL,
     referrer_user_id INTEGER NOT NULL,
     referee_user_id INTEGER NOT NULL,
@@ -63,8 +66,8 @@ module.exports = function applyReferralSchema(db) {
     bonus_percent REAL NOT NULL DEFAULT 0,
     commission_percent REAL NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    credited_at DATETIME,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    credited_at TIMESTAMPTZ,
     FOREIGN KEY (referral_code_id) REFERENCES referral_codes (id),
     FOREIGN KEY (order_id) REFERENCES game_passes (id)
   )`);
@@ -78,13 +81,13 @@ module.exports = function applyReferralSchema(db) {
   // the earnings rows themselves — that keeps the earnings ledger an
   // unmodified history of what was earned.
   run(db, 'referral_payouts table', `CREATE TABLE IF NOT EXISTS referral_payouts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     referral_code_id INTEGER NOT NULL,
     referrer_user_id INTEGER NOT NULL,
     robux_amount INTEGER NOT NULL,
     note TEXT,
     admin_id INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (referral_code_id) REFERENCES referral_codes (id)
   )`);
 

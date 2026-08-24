@@ -46,9 +46,10 @@ function importLegacyAccount(db) {
             run(
               db,
               'bank_accounts legacy import',
-              `INSERT OR IGNORE INTO bank_accounts
+              `INSERT INTO bank_accounts
                  (bank_name, account_number, account_holder, sort_order)
-               VALUES (?, ?, ?, 0)`,
+               VALUES (?, ?, ?, 0)
+               ON CONFLICT (bank_name, account_number) DO NOTHING`,
               [legacy.bank_name, legacy.bank_account_number, legacy.bank_account_holder]
             );
           }
@@ -59,7 +60,7 @@ function importLegacyAccount(db) {
           run(
             db,
             `setting ${MIGRATED_FLAG}`,
-            'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)',
+            'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING',
             [MIGRATED_FLAG, '1']
           );
         });
@@ -70,13 +71,13 @@ function importLegacyAccount(db) {
 
 module.exports = function applyBankingSchema(db) {
   run(db, 'bank_accounts table', `CREATE TABLE IF NOT EXISTS bank_accounts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     bank_name TEXT NOT NULL,
     account_number TEXT NOT NULL,
     account_holder TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
-    is_active INTEGER NOT NULL DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )`);
 
   // The same account at two different banks is a normal thing to hold; the

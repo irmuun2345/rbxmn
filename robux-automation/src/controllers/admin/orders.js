@@ -1,6 +1,7 @@
 // The order queue: reviewing payment, fulfilling, and resolving deliveries that stalled.
 const RobloxGroup = require('../../services/roblox-group');
 const { attemptGroupDelivery } = require('../../services/group-delivery');
+const { ACTION, describeDeliveryFailure } = require('../../services/delivery-errors');
 const { ORDER_STATUS } = require('../../services/order-status');
 const { statusLabel } = require('../../services/order-status');
 const orders = require('../../services/orders');
@@ -424,11 +425,23 @@ module.exports = {
       }
       res.json({ success: true, message: 'Группын payout илгээгдлээ. Захиалга дууссан.' });
     } catch (error) {
-      const knownCode = ['ORDER_NOT_FOUND', 'WRONG_METHOD', 'WRONG_STATUS', 'GROUP_NOT_CONFIGURED'].includes(error.code);
-      if (!knownCode) console.error('Group delivery error:', error.response?.data || error);
-      res.status(knownCode ? 409 : 502).json({
+      const failure = describeDeliveryFailure(error);
+
+      // Only the unexplained ones are worth a stack in the log; the rest are
+      // fully described by what the admin is about to be shown.
+      if (failure.action === ACTION.RETRY && !error.response) {
+        console.error('Group delivery error:', error);
+      } else {
+        console.error(`Group delivery order #${orderId} [${failure.action}]:`, failure.message);
+      }
+
+      res.status(failure.httpStatus).json({
         success: false,
-        error: knownCode ? error.message : 'Групп payout илгээж чадсангүй. Дахин оролдоно уу.'
+        error: failure.message,
+        code: failure.code,
+        // 'resolve' means a payout may already have landed. The dashboard
+        // must not offer a retry button on one of these.
+        action: failure.action
       });
     }
   }

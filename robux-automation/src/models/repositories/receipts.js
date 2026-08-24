@@ -1,8 +1,9 @@
 // Proof-of-transfer files. Rows only — the bytes live outside the web root.
 module.exports = (db) => ({
-  // Fails with SQLITE_CONSTRAINT when this exact file has been uploaded
-  // before, anywhere. Callers translate that into "this receipt has already
-  // been used" rather than swallowing it — see receipt-controller.
+  // Fails with a unique violation (SQLSTATE 23505) when this exact file has
+  // been uploaded before, anywhere. Callers translate that into "this receipt
+  // has already been used" rather than swallowing it — see receipt-controller
+  // and models/db-errors.js.
   createReceipt: (receipt, callback) => {
     const sql = `INSERT INTO receipts
       (entity_type, entity_id, user_id, stored_name, original_name, mime_type, byte_size, sha256)

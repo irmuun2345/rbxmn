@@ -9,13 +9,13 @@ module.exports = function applyCatalogSchema(db) {
   // something the client can propose. price_mnt is the admin-set price;
   // discount_percent is a manually-toggled markdown applied on top of it.
   run(db, 'packages table', `CREATE TABLE IF NOT EXISTS packages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     robux_amount INTEGER NOT NULL,
     price_mnt INTEGER NOT NULL,
     discount_percent REAL NOT NULL DEFAULT 0,
-    is_active BOOLEAN NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )`);
 
   // Seeded only into an empty table: an admin who deliberately deleted every
@@ -30,11 +30,11 @@ module.exports = function applyCatalogSchema(db) {
   // A percentage of extra Robux applied on top of what a customer pays for
   // while the window is open.
   run(db, 'events table', `CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     bonus_percent REAL NOT NULL,
-    starts_at DATETIME NOT NULL,
-    ends_at DATETIME NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    starts_at TIMESTAMPTZ NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )`);
 };

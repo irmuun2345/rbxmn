@@ -31,6 +31,7 @@ const registerOrderRoutes = require('./orders');
 const registerGiftCardRoutes = require('./gift-cards');
 const registerPaymentRoutes = require('./payments');
 const registerAdminRoutes = require('./admin');
+const registerCronRoutes = require('./cron');
 
 const ROUTE_GROUPS = [
   registerAuthRoutes,        // Roblox OAuth handshake and logout
@@ -39,7 +40,8 @@ const ROUTE_GROUPS = [
   registerOrderRoutes,       // creating and paying for an order
   registerGiftCardRoutes,
   registerPaymentRoutes,     // the QPay callback
-  registerAdminRoutes
+  registerAdminRoutes,
+  registerCronRoutes         // the scheduled delivery sweep, called by Vercel Cron
 ];
 
 module.exports = function registerRoutes(app, dependencies) {
@@ -64,5 +66,5 @@ module.exports = function registerRoutes(app, dependencies) {
   // applies to routes registered after it.
   app.use(PRIVATE_PATH_PREFIXES, noStore);
 
-  ROUTE_GROUPS.forEach((register) => register(app, controllers, { requireAdminAuth }));
+  ROUTE_GROUPS.forEach((register) => register(app, controllers, { requireAdminAuth, dbHelpers }));
 };

@@ -60,13 +60,13 @@ module.exports = (db) => ({
   // time Roblox raised a challenge.
   upsertSellerBot: (adminId, username, robloxId, cookie, totpSecret, callback) => {
     const sql = `INSERT INTO seller_bots (admin_id, username, roblox_id, cookie, totp_secret, is_active)
-      VALUES (?, ?, ?, ?, ?, 1)
+      VALUES (?, ?, ?, ?, ?, TRUE)
       ON CONFLICT(username) DO UPDATE SET
         admin_id = excluded.admin_id,
         roblox_id = excluded.roblox_id,
         cookie = excluded.cookie,
         totp_secret = COALESCE(excluded.totp_secret, seller_bots.totp_secret),
-        is_active = 1`;
+        is_active = TRUE`;
     const encryptedSecret = totpSecret === null || totpSecret === undefined
       ? null
       : encryptSecret(totpSecret);
@@ -85,14 +85,14 @@ module.exports = (db) => ({
   },
 
   deactivateAllSellerBots: (callback) => {
-    db.run(`UPDATE seller_bots SET is_active = 0`, [], function(err) {
+    db.run(`UPDATE seller_bots SET is_active = FALSE`, [], function(err) {
       callback(err, err ? null : { changes: this.changes });
     });
   },
 
   getActiveSellerBot: (callback) => {
     db.get(
-      `SELECT * FROM seller_bots WHERE is_active = 1 ORDER BY id DESC LIMIT 1`,
+      `SELECT * FROM seller_bots WHERE is_active = TRUE ORDER BY id DESC LIMIT 1`,
       [],
       hydrating(callback)
     );

@@ -145,6 +145,12 @@ async function attemptGroupDelivery(dbHelpers, orderId) {
         error: detail.slice(0, 500)
       }
     });
+
+    // The one distinction the admin-facing message cannot get wrong: an
+    // ambiguous failure must never be described as "try again". Only this
+    // scope knows which kind it was, so it is recorded on the error itself.
+    error.payoutAttempted = true;
+    error.payoutMayHaveLanded = !neverSent;
     throw error;
   }
 

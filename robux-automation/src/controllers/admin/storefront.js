@@ -1,5 +1,6 @@
 // The numbers a customer sees: Robux pricing and the bank accounts they pay into.
 const { ACTIONS, recordAdminAction } = require('../../services/audit');
+const { isUniqueViolation } = require('../../models/db-errors');
 
 // Column names stay in the data layer; the API speaks camelCase. `sort_order`
 // and `created_at` are deliberately not exposed — nothing outside the
@@ -37,7 +38,7 @@ function readBankAccountFields(body) {
 // account. Worth a 409 rather than a 500: the admin did nothing wrong, they
 // just added the same account twice.
 function isDuplicateAccount(error) {
-  return String(error?.message || '').includes('UNIQUE constraint failed');
+  return isUniqueViolation(error);
 }
 
 module.exports = {

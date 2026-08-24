@@ -1,9 +1,9 @@
 // Shared plumbing for the migration files in this folder.
 //
 // Every statement is idempotent — CREATE TABLE / CREATE INDEX IF NOT EXISTS,
-// INSERT OR IGNORE, and ALTER TABLE guarded by a PRAGMA read — so booting
-// against an existing database is a no-op and booting against an empty one
-// builds the whole schema.
+// INSERT ... ON CONFLICT DO NOTHING, and ALTER TABLE ... ADD COLUMN IF NOT
+// EXISTS — so booting against an existing database is a no-op and booting
+// against an empty one builds the whole schema.
 
 // Failures are logged, never thrown.
 //
@@ -20,36 +20,57 @@ function run(db, label, sql, params = []) {
 /**
  * Adds any of `columns` the table does not already have.
  *
- * SQLite has no "ADD COLUMN IF NOT EXISTS", so the existing columns are read
- * first and the ALTERs are issued for the difference.
+ * This used to read PRAGMA table_info and diff the result, because SQLite has
+ * no "ADD COLUMN IF NOT EXISTS". Postgres does, so the read is gone and with
+ * it the callback that used to wrap these statements — which is why
+ * `afterwards` now runs inline rather than inside a nested serialize().
  *
- * @param {import('sqlite3').Database} db
  * @param {string} table
  * @param {Array<[string, string]>} columns  [name, SQL type + constraints]
- * @param {(db: import('sqlite3').Database) => void} [afterwards]  runs once
- *        the ALTERs are queued — for backfills that need the new columns
+ * @param {(db: object) => void} [afterwards]  runs once the ALTERs are
+ *        queued — for backfills that need the new columns
  */
 function addMissingColumns(db, table, columns, afterwards) {
-  db.all(`PRAGMA table_info(${table})`, (error, existingColumns) => {
-    if (error) {
-      console.error(`Schema: reading ${table} columns failed:`, error.message);
-      return;
-    }
-
-    // This callback fires long after the enclosing db.serialize() block has
-    // returned, so the connection is back in parallel mode by now. Without
-    // re-serializing, the statements below race their own ALTER TABLEs and a
-    // backfill hits a column that does not exist yet.
-    db.serialize(() => {
-      const existing = new Set(existingColumns.map((column) => column.name));
-      columns
-        .filter(([name]) => !existing.has(name))
-        .forEach(([name, definition]) => {
-          run(db, `${table}.${name}`, `ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
-        });
-      if (afterwards) afterwards(db);
+  // The connection runs queued statements strictly in order, so a backfill
+  // queued after these ALTERs cannot observe a table without the new columns.
+  db.serialize(() => {
+    columns.forEach(([name, definition]) => {
+      run(db, `${table}.${name}`,
+        `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${name} ${definition}`);
     });
+    if (afterwards) afterwards(db);
   });
+}
+
+/**
+ * Widens an existing INTEGER column to BIGINT.
+ *
+ * CREATE TABLE IF NOT EXISTS cannot change a table that already exists, so a
+ * column whose declared width turned out to be too small needs this. Guarded
+ * on the current type so it is a no-op once applied — ALTER TYPE rewrites the
+ * table, which is not something to do on every boot.
+ *
+ * Only ever used to widen. Narrowing would lose data and is not offered.
+ */
+function widenToBigint(db, table, column) {
+  db.all(
+    `SELECT data_type FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = ? AND column_name = ?`,
+    [table, column],
+    (error, rows) => {
+      if (error) {
+        console.error(`Schema: reading ${table}.${column} type failed:`, error.message);
+        return;
+      }
+      // No such column yet — the CREATE TABLE that builds it already says
+      // BIGINT, so there is nothing to widen.
+      if (!rows || rows.length === 0) return;
+      if (rows[0].data_type === 'bigint') return;
+
+      run(db, `${table}.${column} -> BIGINT`,
+        `ALTER TABLE ${table} ALTER COLUMN ${column} TYPE BIGINT`);
+    }
+  );
 }
 
 // Default values for the settings table. Existing rows are never overwritten,
@@ -59,8 +80,8 @@ function addMissingColumns(db, table, columns, afterwards) {
 // note in index.js.
 function seedSettings(db, entries) {
   entries.forEach(([key, value]) => {
-    run(db, `setting ${key}`, 'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+    run(db, `setting ${key}`, 'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING', [key, value]);
   });
 }
 
-module.exports = { run, addMissingColumns, seedSettings };
+module.exports = { run, addMissingColumns, seedSettings, widenToBigint };

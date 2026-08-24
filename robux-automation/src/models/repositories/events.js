@@ -11,16 +11,20 @@ module.exports = (db) => ({
     db.all(`SELECT * FROM events ORDER BY starts_at DESC`, [], callback);
   },
 
-  // starts_at/ends_at are written with Date#toISOString, so they look like
-  // "2026-07-31T03:04:38.087Z" while datetime('now') yields
-  // "2026-07-31 04:04:38". BETWEEN on TEXT is a plain string comparison and
-  // ' ' (0x20) sorts before 'T' (0x54), so on the event's own start day
-  // now >= starts_at was always false: events never activated until the
-  // next calendar day, and anything shorter than a day never activated at
-  // all. datetime() normalises both sides to the same format.
+  // starts_at/ends_at are TIMESTAMPTZ columns, so these are real instant
+  // comparisons and both sides are in UTC.
+  //
+  // Under SQLite they were TEXT, written by Date#toISOString as
+  // "2026-07-31T03:04:38.087Z" and compared against datetime('now')'s
+  // "2026-07-31 04:04:38" — a byte-wise string comparison in which ' '
+  // (0x20) sorts before 'T' (0x54). On an event's own start day
+  // now >= starts_at was therefore always false: events never activated
+  // until the next calendar day, and anything shorter than a day never
+  // activated at all. The datetime() wrappers that used to normalise both
+  // sides are gone because the column type now does it.
   getActiveEvent: (callback) => {
     const sql = `SELECT * FROM events
-      WHERE datetime('now') BETWEEN datetime(starts_at) AND datetime(ends_at)
+      WHERE NOW() BETWEEN starts_at AND ends_at
       ORDER BY bonus_percent DESC LIMIT 1`;
     db.get(sql, [], callback);
   },
@@ -29,8 +33,8 @@ module.exports = (db) => ({
   // events are dropped — a finished promotion is noise to a buyer.
   getCurrentAndUpcomingEvents: (callback) => {
     const sql = `SELECT * FROM events
-      WHERE datetime(ends_at) >= datetime('now')
-      ORDER BY datetime(starts_at) ASC`;
+      WHERE ends_at >= NOW()
+      ORDER BY starts_at ASC`;
     db.all(sql, [], callback);
   },
 

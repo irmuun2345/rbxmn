@@ -129,12 +129,18 @@ function decryptSecret(stored) {
 
   const key = readKey();
   if (!key) {
-    throw new Error('CREDENTIAL_KEY is not set, but a stored credential is encrypted with one.');
+    throw Object.assign(
+      new Error('CREDENTIAL_KEY is not set, but a stored credential is encrypted with one.'),
+      { code: 'CREDENTIAL_DECRYPT_FAILED' }
+    );
   }
 
   const [, iv, tag, ciphertext] = String(stored).split(':');
   if (!iv || !tag || !ciphertext) {
-    throw new Error('Stored credential is malformed.');
+    throw Object.assign(
+      new Error('Stored credential is malformed.'),
+      { code: 'CREDENTIAL_DECRYPT_FAILED' }
+    );
   }
 
   try {
@@ -147,9 +153,12 @@ function decryptSecret(stored) {
   } catch {
     // The GCM tag failing is the whole point of using GCM — it means this is
     // not the key that wrote the value, or the row was edited underneath us.
-    throw new Error(
-      'Stored credential could not be decrypted. CREDENTIAL_KEY may have changed — '
-      + 'reconnect the bot account in the dashboard to store it again.'
+    throw Object.assign(
+      new Error(
+        'Stored credential could not be decrypted. CREDENTIAL_KEY may have changed — '
+        + 'reconnect the bot account in the dashboard to store it again.'
+      ),
+      { code: 'CREDENTIAL_DECRYPT_FAILED' }
     );
   }
 }

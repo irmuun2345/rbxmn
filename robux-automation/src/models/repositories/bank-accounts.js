@@ -8,7 +8,7 @@ module.exports = (db) => ({
   // old receipt still resolves to a name, but they are never offered again.
   listActiveBankAccounts: (callback) => {
     db.all(
-      `SELECT * FROM bank_accounts WHERE is_active = 1 ORDER BY sort_order ASC, id ASC`,
+      `SELECT * FROM bank_accounts WHERE is_active = TRUE ORDER BY sort_order ASC, id ASC`,
       [],
       (error, rows) => callback(error, error ? null : rows)
     );
@@ -47,7 +47,7 @@ module.exports = (db) => ({
       `UPDATE bank_accounts
           SET bank_name = ?, account_number = ?, account_holder = ?, is_active = ?
         WHERE id = ?`,
-      [bankName, accountNumber, accountHolder, isActive ? 1 : 0, id],
+      [bankName, accountNumber, accountHolder, Boolean(isActive), id],
       function update(error) {
         callback(error, error ? null : { changes: this.changes });
       }
@@ -60,27 +60,28 @@ module.exports = (db) => ({
     });
   },
 
-  // Rewrites the whole ordering from a list of ids. Done as one statement per
-  // id inside a transaction so a half-applied reorder cannot leave two
-  // accounts claiming the same position.
+  // Rewrites the whole ordering from a list of ids.
+  //
+  // One statement, so a half-applied reorder cannot leave two accounts
+  // claiming the same position. This used to be one UPDATE per id wrapped in
+  // BEGIN IMMEDIATE / COMMIT, which is not safe over a connection pool: each
+  // statement is checked out independently, so the BEGIN, the updates and the
+  // COMMIT could each land on a different backend — the transaction would
+  // guard nothing and the COMMIT would close an empty one.
+  //
+  // unnest(...) WITH ORDINALITY turns the id array into (id, position) rows
+  // the UPDATE can join against. A single statement is atomic on its own, so
+  // no explicit transaction is needed. WITH ORDINALITY counts from 1 and the
+  // old loop counted from 0; sort_order is only ever compared, never read as
+  // a value, but the -1 keeps the stored numbers identical to before.
   reorderBankAccounts: (orderedIds, callback) => {
-    db.serialize(() => {
-      db.run('BEGIN IMMEDIATE', (beginError) => {
-        if (beginError) return callback(beginError, null);
+    const sql = `UPDATE bank_accounts
+      SET sort_order = ranked.position - 1
+      FROM (SELECT * FROM unnest(?::int[]) WITH ORDINALITY AS t(id, position)) AS ranked
+      WHERE bank_accounts.id = ranked.id`;
 
-        let failure = null;
-        orderedIds.forEach((id, index) => {
-          db.run(
-            `UPDATE bank_accounts SET sort_order = ? WHERE id = ?`,
-            [index, id],
-            (error) => { failure = failure || error; }
-          );
-        });
-
-        db.run(failure ? 'ROLLBACK' : 'COMMIT', (endError) => {
-          callback(failure || endError, failure || endError ? null : { ordered: orderedIds.length });
-        });
-      });
+    db.run(sql, [orderedIds], function reorder(error) {
+      callback(error, error ? null : { ordered: this.changes });
     });
   }
 });

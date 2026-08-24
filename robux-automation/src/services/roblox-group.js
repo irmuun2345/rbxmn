@@ -305,12 +305,23 @@ class RobloxGroup {
     return { robloxId: String(response.data.id), username: response.data.name };
   }
 
+  // The owner comes back alongside the name because it is the one fact that
+  // decides whether a group can be paid out from at all: Roblox lets only the
+  // group's owner spend its funds, so a group configured here that the bot
+  // does not own can never deliver an order, however healthy it otherwise
+  // looks from the outside.
   static async getGroupInfo(groupId) {
     const response = await withRetry(() => axios.get(
       `${GROUPS_URL}/${encodeURIComponent(groupId)}`,
       { timeout: REQUEST_TIMEOUT_MS }
     ));
-    return { groupId: String(groupId), name: response.data?.name || null };
+    const owner = response.data?.owner || null;
+    return {
+      groupId: String(groupId),
+      name: response.data?.name || null,
+      ownerId: owner?.userId ? String(owner.userId) : null,
+      ownerUsername: owner?.username || null
+    };
   }
 
   // The group's spendable Robux. Checked before a payout so "the group is
@@ -345,7 +356,24 @@ class RobloxGroup {
       ));
       return response.data || null;
     } catch (error) {
-      if (error.response?.status === 400 || error.response?.status === 404) return null;
+      const status = error.response?.status;
+      if (status === 400 || status === 404) return null;
+
+      // 401/403 here does not mean "no request pending" — it is Roblox saying
+      // this account may not read the group's join requests. For an account
+      // that is supposed to run the group that means one of two things: the
+      // cookie is dead, or the configured group is not the bot's to manage.
+      // Left as a bare axios error it reaches the admin as an unexplained
+      // "try again", so it is named and marked never-sent.
+      if (status === 401 || status === 403) {
+        throw Object.assign(
+          new Error(
+            'Bot аккаунт энэ группын нэгдэх хүсэлтийг харах эрхгүй байна. '
+            + 'Группын ID бот эзэмшдэг групп мөн эсэх, cookie хүчинтэй эсэхийг шалгана уу.'
+          ),
+          { code: 'GROUP_PERMISSION_DENIED', preflight: true, status }
+        );
+      }
       throw error;
     }
   }

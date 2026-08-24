@@ -5,11 +5,11 @@ const { run, seedSettings } = require('./helpers');
 
 module.exports = function applyIdentitySchema(db) {
   run(db, 'phone_links table', `CREATE TABLE IF NOT EXISTS phone_links (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     phone_number TEXT UNIQUE NOT NULL,
     user_id INTEGER NOT NULL,
     verified BOOLEAN DEFAULT FALSE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   )`);
 
@@ -27,20 +27,26 @@ module.exports = function applyIdentitySchema(db) {
   // expressed in days of membership. So we record the clock ourselves.
   //
   // `source` distinguishes how we learned the date:
-  //   'accepted' — we accepted their join request, so joined_at is exact.
-  //   'observed' — they were already a member the first time we looked, so
-  //                joined_at is when we noticed, not when they joined. That
-  //                is deliberately conservative: it can only ever delay
-  //                eligibility, never grant it early.
+  //   'accepted'   — we accepted their join request, so joined_at is exact.
+  //   'open_cloud' — read from Open Cloud's membership createTime, which is
+  //                  the real join date even for someone who joined long
+  //                  before we first saw them.
+  //   'observed'   — a guess. They were already a member the first time we
+  //                  looked and Open Cloud could not be reached, so joined_at
+  //                  is when we noticed rather than when they joined. That is
+  //                  deliberately conservative: it can only ever delay
+  //                  eligibility, never grant it early. These rows are the
+  //                  only ones the app will later overwrite, and only ever
+  //                  with an earlier, confirmed date.
   run(db, 'group_memberships table', `CREATE TABLE IF NOT EXISTS group_memberships (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     roblox_id TEXT NOT NULL,
     group_id TEXT NOT NULL,
-    joined_at DATETIME NOT NULL,
+    joined_at TIMESTAMPTZ NOT NULL,
     source TEXT NOT NULL DEFAULT 'observed',
-    last_verified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_verified_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   )`);
 

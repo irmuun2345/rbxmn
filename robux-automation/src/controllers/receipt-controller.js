@@ -1,15 +1,18 @@
 const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
 const { ORDER_STATUS } = require('../services/order-status');
 const orders = require('../services/orders');
 const { ACTIONS, recordUserAction, recordAdminAction } = require('../services/audit');
+const receiptStorage = require('../services/receipt-storage');
 
-// Receipts are private financial documents. They live outside public/ so that
-// express.static can never hand one out, and are only readable through the
-// admin-authenticated serve() route below.
-const RECEIPT_DIR = path.join(__dirname, '../../uploads/receipts');
+// Receipts are private financial documents. They are stored outside public/
+// so that express.static can never hand one out, and are only readable
+// through the admin-authenticated serve() route below.
+//
+// Where "outside public/" actually is depends on the deployment — a local
+// directory, or a private Vercel Blob store — which is why this file no
+// longer touches fs directly. See services/receipt-storage.js.
+const { RECEIPT_DIR } = receiptStorage;
 const MAX_BYTES = 5 * 1024 * 1024;
 
 // Photos of a bank transfer, plus PDF for people who export the statement.
@@ -60,7 +63,9 @@ function detectType(buffer) {
   )) || null;
 }
 
-fs.mkdirSync(RECEIPT_DIR, { recursive: true });
+// The directory used to be created here at require() time. It is the storage
+// backend's business now — and on a read-only serverless filesystem, doing it
+// at import would crash the function before it served a single request.
 
 // Buffered in memory rather than streamed to disk: the file has to be hashed
 // and checked for a duplicate *before* anything is written, otherwise a
@@ -262,7 +267,7 @@ class ReceiptController {
     }
 
     const storedName = `${sha256}${detected.extension}`;
-    await fs.promises.writeFile(path.join(RECEIPT_DIR, storedName), file.buffer);
+    await receiptStorage.save(storedName, file.buffer, detected.mime);
 
     try {
       const receipt = await this.insert({
@@ -279,9 +284,16 @@ class ReceiptController {
       });
       return { duplicate: false, receipt };
     } catch (error) {
-      // Lost a race against a concurrent upload of the same bytes. The file
-      // on disk is identical, so leaving it is harmless and correct.
-      if (String(error.message || '').includes('UNIQUE')) {
+      // Lost a race against a concurrent upload of the same bytes. The stored
+      // file is identical (the name is its own hash), so leaving it is
+      // harmless and correct.
+      //
+      // Matched on Postgres's SQLSTATE rather than the message text. SQLite
+      // said "UNIQUE constraint failed" and Postgres says "duplicate key
+      // value violates unique constraint" — a substring check against the old
+      // wording would never fire again, turning a duplicate upload into a 500
+      // instead of the "you already sent this" path.
+      if (error.code === '23505') {
         return { duplicate: true, existing: await this.findExistingBySha(sha256) };
       }
       throw error;
@@ -303,14 +315,19 @@ class ReceiptController {
         return res.status(404).json({ success: false, error: 'Баримт олдсонгүй.' });
       }
 
-      // stored_name is always a hash + known extension, but resolve and
-      // re-check the prefix anyway so a tampered row can't escape the
-      // directory.
-      const filePath = path.resolve(RECEIPT_DIR, receipt.stored_name);
-      if (!filePath.startsWith(path.resolve(RECEIPT_DIR) + path.sep)) {
-        return res.status(400).json({ success: false, error: 'Баримтын зам буруу байна.' });
+      // stored_name is always a hash + known extension, but the storage
+      // backend re-checks that it is a bare filename anyway, so a tampered
+      // row can't escape the directory (or reach a different blob path).
+      let stream;
+      try {
+        stream = await receiptStorage.openStream(receipt.stored_name);
+      } catch (error) {
+        if (error.code === 'RECEIPT_PATH_INVALID') {
+          return res.status(400).json({ success: false, error: 'Баримтын зам буруу байна.' });
+        }
+        throw error;
       }
-      if (!fs.existsSync(filePath)) {
+      if (!stream) {
         return res.status(404).json({ success: false, error: 'Баримтын файл олдсонгүй.' });
       }
 
@@ -329,7 +346,15 @@ class ReceiptController {
       // Financial documents shouldn't be embeddable anywhere else.
       res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'");
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      fs.createReadStream(filePath).pipe(res);
+
+      // The local backend yields a Node stream and Vercel Blob a web
+      // ReadableStream; Readable.fromWeb normalises the latter so both pipe
+      // the same way.
+      if (typeof stream.pipe === 'function') {
+        stream.pipe(res);
+      } else {
+        require('stream').Readable.fromWeb(stream).pipe(res);
+      }
     } catch (error) {
       console.error('Serve receipt error:', error);
       res.status(500).json({ success: false, error: 'Баримтыг нээж чадсангүй.' });

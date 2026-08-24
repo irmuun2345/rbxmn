@@ -173,9 +173,9 @@ module.exports = (db) => ({
       JOIN users u ON u.id = gp.user_id
       WHERE gp.status = ?
         AND gp.fulfillment_started_at IS NOT NULL
-        AND gp.fulfillment_started_at <= datetime('now', ?)
+        AND gp.fulfillment_started_at <= NOW() - (? * INTERVAL '1 minute')
       ORDER BY gp.fulfillment_started_at ASC`;
-    db.all(sql, [ORDER_STATUS.FULFILLMENT_PROCESSING, `-${Number(olderThanMinutes)} minutes`], callback);
+    db.all(sql, [ORDER_STATUS.FULFILLMENT_PROCESSING, Number(olderThanMinutes)], callback);
   },
 
   // Checked across both tables that hand out reference codes, so an order and

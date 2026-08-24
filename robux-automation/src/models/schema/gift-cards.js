@@ -6,7 +6,7 @@ const { run, addMissingColumns } = require('./helpers');
 
 module.exports = function applyGiftCardSchema(db) {
   run(db, 'gift_cards table', `CREATE TABLE IF NOT EXISTS gift_cards (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     code TEXT UNIQUE NOT NULL,
     robux_amount INTEGER NOT NULL,
     price_mnt INTEGER NOT NULL,
@@ -15,9 +15,9 @@ module.exports = function applyGiftCardSchema(db) {
     status TEXT NOT NULL DEFAULT 'awaiting_payment',
     redeemed_by_user_id INTEGER,
     redeemed_order_id INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    approved_at DATETIME,
-    redeemed_at DATETIME,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    approved_at TIMESTAMPTZ,
+    redeemed_at TIMESTAMPTZ,
     FOREIGN KEY (purchaser_user_id) REFERENCES users (id),
     FOREIGN KEY (redeemed_by_user_id) REFERENCES users (id)
   )`);
@@ -29,8 +29,9 @@ module.exports = function applyGiftCardSchema(db) {
   // gift cards — and a loop that checks then inserts is exactly what a unique
   // index exists to backstop.
   //
-  // Partial, because a reference is nullable and SQLite would otherwise treat
-  // every NULL as distinct anyway; being explicit documents the intent.
+  // Partial, because a reference is nullable and Postgres treats every NULL
+  // as distinct in a unique index anyway; being explicit documents the intent
+  // and keeps the index off the rows that can never collide.
   //
   // A pre-existing duplicate makes this fail. Loud rather than fatal: the
   // rest of the app works, and the fix is a manual reconciliation of the two

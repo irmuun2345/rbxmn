@@ -10,6 +10,12 @@ const http = require('http');
 const { dbHelpers } = require('./src/models/db');
 const { startGroupOrderPoller } = require('./src/services/group-order-poller');
 
+// The in-process delivery sweep, for a machine that stays up.
+//
+// This file is not the entrypoint on Vercel — api/index.js is, and it does
+// not start a poller: a serverless function is frozen the moment it sends a
+// response, so an interval set here would simply never fire again. There, the
+// schedule lives in vercel.json and calls /api/cron/group-orders instead.
 startGroupOrderPoller(dbHelpers);
 
 /**

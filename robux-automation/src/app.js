@@ -11,7 +11,7 @@ dotenv.config({ path: path.join(__dirname, '../config/.env') });
 // Import middleware
 const { requireAdminAuth, adminLogin, adminRegister } = require('./middleware/admin-auth');
 const { cspNonce, securityHeaders, permissionsPolicy, nonceStampedHtml } = require('./middleware/security-headers');
-const { SqliteSessionStore } = require('./middleware/session-store');
+const { PostgresSessionStore } = require('./middleware/session-store');
 const { blockKnownScrapers, globalLimiter } = require('./middleware/anti-scraping');
 
 // Import services
@@ -97,7 +97,7 @@ app.use(session({
   saveUninitialized: false,
   // Persistent store: the default MemoryStore leaks expired sessions and
   // drops everyone's login on restart.
-  store: new SqliteSessionStore({ ttlMs: SESSION_TTL_MS }),
+  store: new PostgresSessionStore({ ttlMs: SESSION_TTL_MS }),
   // Slides the expiry on activity, so an admin working through the dashboard
   // isn't logged out mid-review at the 24-hour mark.
   rolling: true,

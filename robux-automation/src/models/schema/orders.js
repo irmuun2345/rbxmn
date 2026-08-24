@@ -6,11 +6,11 @@
 // behavioural gain, so the name stays and this comment explains it.
 
 const { ORDER_STATUS } = require('../../services/order-status');
-const { run, addMissingColumns } = require('./helpers');
+const { run, addMissingColumns, widenToBigint } = require('./helpers');
 
 // Columns added after the table first shipped, oldest first.
 const ADDED_COLUMNS = [
-  ['universe_id', 'INTEGER'],
+  ['universe_id', 'BIGINT'],
   ['listed_price', 'INTEGER'],
   ['amount_mnt', 'INTEGER'],
   ['rate_per_100_mnt', 'INTEGER'],
@@ -21,12 +21,12 @@ const ADDED_COLUMNS = [
   ['bonus_percent', 'REAL NOT NULL DEFAULT 0'],
   // Set the moment we start talking to Roblox about a delivery, so an order
   // stuck in FULFILLMENT_PROCESSING can be aged and surfaced.
-  ['fulfillment_started_at', 'DATETIME'],
+  ['fulfillment_started_at', 'TIMESTAMPTZ'],
   ['fulfillment_error', 'TEXT'],
   ['rejection_reason', 'TEXT'],
   ['reviewed_by_admin_id', 'INTEGER'],
-  ['reviewed_at', 'DATETIME'],
-  ['completed_at', 'DATETIME'],
+  ['reviewed_at', 'TIMESTAMPTZ'],
+  ['completed_at', 'TIMESTAMPTZ'],
   // Recorded per order so a later change to the global referral rate never
   // rewrites what an existing order was promised.
   ['referral_bonus_percent', 'REAL NOT NULL DEFAULT 0'],
@@ -45,20 +45,25 @@ const RENAMED_STATUSES = [
 
 module.exports = function applyOrderSchema(db) {
   run(db, 'game_passes table', `CREATE TABLE IF NOT EXISTS game_passes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
     price INTEGER NOT NULL,
-    roblox_gamepass_id INTEGER,
-    universe_id INTEGER,
+    roblox_gamepass_id BIGINT,
+    universe_id BIGINT,
     listed_price INTEGER,
     amount_mnt INTEGER,
     rate_per_100_mnt INTEGER,
     status TEXT NOT NULL DEFAULT 'legacy',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   )`);
+
+  // Roblox-side ids, which exceed a 32-bit integer — same widening as
+  // users.roblox_id, and for the same reason. See the note in core.js.
+  widenToBigint(db, 'game_passes', 'roblox_gamepass_id');
+  widenToBigint(db, 'game_passes', 'universe_id');
 
   addMissingColumns(db, 'game_passes', ADDED_COLUMNS, () => {
     RENAMED_STATUSES.forEach(([from, to]) => {
@@ -87,14 +92,14 @@ module.exports = function applyOrderSchema(db) {
   });
 
   run(db, 'transactions table', `CREATE TABLE IF NOT EXISTS transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     gamepass_id INTEGER NOT NULL,
     buyer_id INTEGER NOT NULL,
     seller_id INTEGER NOT NULL,
     amount INTEGER NOT NULL,
     roblox_transaction_id TEXT,
     status TEXT DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (gamepass_id) REFERENCES game_passes (id),
     FOREIGN KEY (buyer_id) REFERENCES users (id),
     FOREIGN KEY (seller_id) REFERENCES users (id)

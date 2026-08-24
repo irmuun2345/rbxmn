@@ -15,12 +15,14 @@ module.exports = (db) => ({
     db.get(`SELECT * FROM referral_codes WHERE user_id = ?`, [userId], callback);
   },
 
-  // NOCASE so 'Sunee' and 'SUNEE' resolve to the same creator.
+  // Case-insensitive so 'Sunee' and 'SUNEE' resolve to the same creator.
+  // LOWER(rc.code) rather than ILIKE so this hits the unique index built on
+  // exactly that expression — see schema/referrals.js.
   getReferralCodeByCode: (code, callback) => {
     db.get(
       `SELECT rc.*, u.username AS owner_username, u.roblox_id AS owner_roblox_id
        FROM referral_codes rc JOIN users u ON u.id = rc.user_id
-       WHERE rc.code = ? COLLATE NOCASE`,
+       WHERE LOWER(rc.code) = LOWER(?)`,
       [code],
       callback
     );
@@ -34,7 +36,7 @@ module.exports = (db) => ({
     const sql = `UPDATE referral_codes
       SET is_influencer = ?, bonus_percent_override = ?, commission_percent_override = ?, is_active = ?
       WHERE id = ?`;
-    db.run(sql, [isInfluencer ? 1 : 0, bonusOverride, commissionOverride, isActive ? 1 : 0, id], function(err) {
+    db.run(sql, [Boolean(isInfluencer), bonusOverride, commissionOverride, Boolean(isActive), id], function(err) {
       callback(err, err ? null : { changes: this.changes });
     });
   },

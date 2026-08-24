@@ -1,3 +1,4 @@
+const { isUniqueViolation } = require('../models/db-errors');
 // Every order and gift-card action requires the buyer's Roblox account to
 // have a phone number locked to it first — one phone number can only ever
 // be linked to one Roblox account (enforced at the DB layer, see
@@ -63,7 +64,7 @@ class PhoneController {
 
       res.json({ success: true, message: 'Утасны дугаар холбогдлоо.', phoneNumber });
     } catch (error) {
-      if (String(error?.message || '').includes('UNIQUE')) {
+      if (isUniqueViolation(error)) {
         return res.status(409).json({
           success: false,
           error: 'Энэ утасны дугаар өөр Roblox аккаунтад аль хэдийн холбогдсон байна.'

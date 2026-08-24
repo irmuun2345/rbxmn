@@ -9,6 +9,7 @@
 // when that order reaches COMPLETED. Balances count credited rows alone.
 
 const { ORDER_STATUS } = require('./order-status');
+const { isUniqueViolation } = require('../models/db-errors');
 
 // Codes are chosen by the person who owns them, so they need to be readable
 // and typeable: letters and digits only, nothing else. A creator's code is
@@ -104,8 +105,7 @@ async function createCodeForUser(dbHelpers, userId, rawCode) {
     const created = await promisify(dbHelpers, 'createReferralCode', userId, code);
     return { id: created.id, code };
   } catch (error) {
-    const message = String(error?.message || '');
-    if (message.includes('UNIQUE') || message.includes('constraint')) {
+    if (isUniqueViolation(error)) {
       // Which constraint tripped decides what the user is told.
       const existing = await promisify(dbHelpers, 'getReferralCodeByUserId', userId);
       if (existing) {
@@ -178,7 +178,7 @@ async function bindCodeToUser(dbHelpers, refereeUserId, rawCode) {
       refereeUserId, referralCode.id, referralCode.user_id
     );
   } catch (error) {
-    if (String(error?.message || '').includes('UNIQUE')) {
+    if (isUniqueViolation(error)) {
       throw fail('Та аль хэдийн урилгын кодтой холбогдсон байна.', 'ALREADY_REFERRED');
     }
     throw error;
@@ -264,7 +264,7 @@ async function recordPendingEarning(dbHelpers, { terms, orderId, orderRobux, bon
       commissionPercent: terms.commissionPercent
     });
   } catch (error) {
-    if (String(error?.message || '').includes('UNIQUE')) {
+    if (isUniqueViolation(error)) {
       // This order already has an earning. Correct outcome, nothing to do.
       return null;
     }

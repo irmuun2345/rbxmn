@@ -18,7 +18,7 @@ module.exports = function applyPaymentSchema(db) {
   // unknown reference, or for the wrong amount, is exactly what someone needs
   // to see when a customer says they paid and nothing happened.
   run(db, 'payments table', `CREATE TABLE IF NOT EXISTS payments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     provider TEXT NOT NULL,
     provider_payment_id TEXT NOT NULL,
     payment_reference TEXT,
@@ -27,7 +27,7 @@ module.exports = function applyPaymentSchema(db) {
     entity_id INTEGER,
     outcome TEXT NOT NULL,
     reason TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )`);
 
   // One row per provider transaction, forever. This is the single line that
@@ -46,7 +46,7 @@ module.exports = function applyPaymentSchema(db) {
   // top-ups": re-uploading the same image against a second order fails at the
   // INSERT rather than reaching an admin who might approve it twice.
   run(db, 'receipts table', `CREATE TABLE IF NOT EXISTS receipts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     entity_type TEXT NOT NULL,
     entity_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
@@ -55,7 +55,7 @@ module.exports = function applyPaymentSchema(db) {
     mime_type TEXT NOT NULL,
     byte_size INTEGER NOT NULL,
     sha256 TEXT NOT NULL UNIQUE,
-    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    uploaded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   )`);
 

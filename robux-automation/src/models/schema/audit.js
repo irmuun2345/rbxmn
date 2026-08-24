@@ -11,7 +11,7 @@ module.exports = function applyAuditSchema(db) {
   // background poller took on its own, which is the distinction that matters
   // when reconstructing how an order reached its current state.
   run(db, 'audit_log table', `CREATE TABLE IF NOT EXISTS audit_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     actor_type TEXT NOT NULL,
     actor_id INTEGER,
     actor_name TEXT,
@@ -20,7 +20,7 @@ module.exports = function applyAuditSchema(db) {
     entity_id INTEGER,
     details TEXT,
     ip_address TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )`);
 
   // The log is read newest-first, and filtered by entity when investigating
