@@ -7,6 +7,46 @@ const {
   placeholders
 } = require('../../services/order-status');
 
+// One completed order per row, with the local day it landed on already
+// worked out. Both filtered sales views read from this, so a row can never be
+// counted in the totals but missing from the list under them.
+const SALES_SOURCE = `WITH sales AS (
+    SELECT
+      gp.id,
+      u.username,
+      u.roblox_id,
+      gp.payment_reference,
+      gp.delivery_method,
+      COALESCE(gp.delivered_robux, gp.price, 0) AS robux,
+      COALESCE(gp.amount_mnt, 0) AS mnt,
+      COALESCE(gp.completed_at, gp.created_at) AS completed_at,
+      (COALESCE(gp.completed_at, gp.created_at) AT TIME ZONE 'Asia/Ulaanbaatar')::date AS day
+    FROM game_passes gp
+    JOIN users u ON u.id = gp.user_id
+    WHERE gp.status = ?
+  )`;
+
+// Every filter is optional and each one is its own NULL check, so an admin can
+// search without a date range, bound a range without searching, or ask for
+// everything. The casts are not decoration: a bare parameter compared against
+// NULL leaves Postgres with no type to infer and the statement fails to parse.
+//
+// A reference is typed off a bank statement and a username is remembered
+// rather than copied, so both match case-insensitively on a substring. The
+// Roblox id is matched whole — it is a number an admin pastes, and '123' as a
+// substring would drag in every account that merely contains it.
+const SALES_FILTER = `WHERE (?::date IS NULL OR day >= ?::date)
+    AND (?::date IS NULL OR day <= ?::date)
+    AND (?::text IS NULL
+      OR username ILIKE ?
+      OR payment_reference ILIKE ?
+      OR roblox_id::text = ?)`;
+
+function salesFilterParams({ from = null, to = null, search = null }) {
+  const like = search === null ? null : `%${search}%`;
+  return [from, from, to, to, search, like, like, search];
+}
+
 module.exports = (db) => ({
   // Create a game pass
   createGamePass: (userId, name, description, price, robloxGamePassId, callback) => {
@@ -143,6 +183,102 @@ module.exports = (db) => ({
       WHERE gp.status != '${ORDER_STATUS.LEGACY}'
       ORDER BY gp.created_at DESC`;
     db.all(sql, [], callback);
+  },
+
+  // Sales totals for the dashboard, cut by period.
+  //
+  // Only completed orders count: anything earlier is a promise, not a sale,
+  // and counting it would have the strip drop back down whenever a payment
+  // is rejected. Gift cards are a separate ledger and are not in here.
+  //
+  // The day boundary is Ulaanbaatar local, not UTC. Postgres stores every
+  // timestamp in UTC, so a naive ::date puts the eight hours after midnight
+  // local — a busy part of the evening here — on the previous day, and
+  // "today" would be wrong for a third of the working day.
+  //
+  // `delivered_robux` is the amount actually paid out (bonus included), and
+  // `price` is the fallback for rows created before that column existed.
+  getOrderStats: (callback) => {
+    const sql = `WITH bounds AS (
+        SELECT (NOW() AT TIME ZONE 'Asia/Ulaanbaatar')::date AS today
+      ),
+      sales AS (
+        SELECT
+          COALESCE(delivered_robux, price, 0) AS robux,
+          COALESCE(amount_mnt, 0) AS mnt,
+          (COALESCE(completed_at, created_at) AT TIME ZONE 'Asia/Ulaanbaatar')::date AS day
+        FROM game_passes
+        WHERE status = ?
+      )
+      SELECT
+        COUNT(s.day) FILTER (WHERE s.day = b.today) AS today_orders,
+        COALESCE(SUM(s.robux) FILTER (WHERE s.day = b.today), 0) AS today_robux,
+        COALESCE(SUM(s.mnt) FILTER (WHERE s.day = b.today), 0) AS today_mnt,
+
+        COUNT(s.day) FILTER (WHERE s.day = b.today - 1) AS yesterday_orders,
+        COALESCE(SUM(s.robux) FILTER (WHERE s.day = b.today - 1), 0) AS yesterday_robux,
+        COALESCE(SUM(s.mnt) FILTER (WHERE s.day = b.today - 1), 0) AS yesterday_mnt,
+
+        COUNT(s.day) FILTER (WHERE s.day > b.today - 7) AS week_orders,
+        COALESCE(SUM(s.robux) FILTER (WHERE s.day > b.today - 7), 0) AS week_robux,
+        COALESCE(SUM(s.mnt) FILTER (WHERE s.day > b.today - 7), 0) AS week_mnt,
+
+        COUNT(s.day) FILTER (WHERE s.day >= date_trunc('month', b.today)) AS month_orders,
+        COALESCE(SUM(s.robux) FILTER (WHERE s.day >= date_trunc('month', b.today)), 0) AS month_robux,
+        COALESCE(SUM(s.mnt) FILTER (WHERE s.day >= date_trunc('month', b.today)), 0) AS month_mnt,
+
+        COUNT(s.day) FILTER (WHERE date_trunc('month', s.day)
+          = date_trunc('month', b.today) - INTERVAL '1 month') AS last_month_orders,
+        COALESCE(SUM(s.robux) FILTER (WHERE date_trunc('month', s.day)
+          = date_trunc('month', b.today) - INTERVAL '1 month'), 0) AS last_month_robux,
+        COALESCE(SUM(s.mnt) FILTER (WHERE date_trunc('month', s.day)
+          = date_trunc('month', b.today) - INTERVAL '1 month'), 0) AS last_month_mnt,
+
+        COUNT(s.day) AS total_orders,
+        COALESCE(SUM(s.robux), 0) AS total_robux,
+        COALESCE(SUM(s.mnt), 0) AS total_mnt,
+
+        to_char(b.today, 'YYYY-MM-DD') AS today_date,
+        to_char(b.today - 1, 'YYYY-MM-DD') AS yesterday_date,
+        to_char(b.today - 6, 'YYYY-MM-DD') AS week_start,
+        to_char(date_trunc('month', b.today), 'YYYY-MM-DD') AS month_start,
+        to_char(date_trunc('month', b.today) - INTERVAL '1 month', 'YYYY-MM-DD') AS last_month_start,
+        to_char(date_trunc('month', b.today) - INTERVAL '1 day', 'YYYY-MM-DD') AS last_month_end
+      FROM bounds b
+      LEFT JOIN sales s ON TRUE
+      GROUP BY b.today`;
+    db.get(sql, [ORDER_STATUS.COMPLETED], callback);
+  },
+
+  // The totals for whatever the admin has filtered to. Counted by Postgres
+  // rather than by adding up the page below it, so the figure stays right
+  // when the list is capped at a page of results.
+  getSalesTotals: (filters, callback) => {
+    const sql = `${SALES_SOURCE}
+      SELECT
+        COUNT(*) AS orders,
+        COALESCE(SUM(robux), 0) AS robux,
+        COALESCE(SUM(mnt), 0) AS mnt
+      FROM sales
+      ${SALES_FILTER}`;
+    db.get(sql, [ORDER_STATUS.COMPLETED, ...salesFilterParams(filters)], callback);
+  },
+
+  // The orders behind those totals, newest first. LIMIT is always set by the
+  // caller: an install with a year of history would otherwise send every
+  // order it has ever completed to the browser.
+  searchSales: (filters, limit, offset, callback) => {
+    const sql = `${SALES_SOURCE}
+      SELECT id, username, roblox_id, payment_reference, delivery_method, robux, mnt, completed_at
+      FROM sales
+      ${SALES_FILTER}
+      ORDER BY completed_at DESC, id DESC
+      LIMIT ? OFFSET ?`;
+    db.all(
+      sql,
+      [ORDER_STATUS.COMPLETED, ...salesFilterParams(filters), Number(limit), Number(offset)],
+      callback
+    );
   },
 
   // An order still in flight for this user, regardless of delivery method —

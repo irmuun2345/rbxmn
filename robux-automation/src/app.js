@@ -16,6 +16,7 @@ const { blockKnownScrapers, globalLimiter } = require('./middleware/anti-scrapin
 
 // Import services
 const RobloxAuth = require('./services/roblox-auth');
+const receiptStorage = require('./services/receipt-storage');
 
 // Import models
 const { dbHelpers } = require('./models/db');
@@ -115,6 +116,16 @@ app.use(session({
 // Static assets
 // ---------------------------------------------------------------------------
 
+// The site used to ship its icon as /favicon.svg. Browsers cache a favicon
+// hard and by URL, and anything that saw the old site — or any client that
+// guesses /favicon.ico without reading the markup — keeps asking for those
+// two paths forever. Point both at the current mark so a stale request can
+// never resurrect the old art. Ahead of express.static on purpose: it wins
+// even if an old favicon.svg is still sitting in a deployment bundle.
+app.get(['/favicon.ico', '/favicon.svg'], (req, res) => {
+  res.redirect(301, '/img/favicon.png');
+});
+
 // HTML goes through the nonce stamper; everything else through static.
 // index:false stops static from serving index.html behind the stamper's back.
 app.use(nonceStampedHtml(PUBLIC_DIR));
@@ -164,9 +175,19 @@ require('./routes')(app, {
   adminRegister
 });
 
-// Health check endpoint
+// Health check endpoint.
+//
+// receiptStorage reports which backend uploads would use: 'blob' when the Blob
+// token is present, 'local' on a developer machine, and 'unconfigured' when a
+// deployment is missing BLOB_READ_WRITE_TOKEN — which is checkable right after
+// a deploy, instead of surfacing as a failed upload from a buyer who has
+// already transferred the money. It names no secret.
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'OK',
+    receiptStorage: receiptStorage.backendName,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ---------------------------------------------------------------------------

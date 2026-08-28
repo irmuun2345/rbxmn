@@ -69,7 +69,7 @@ module.exports = {
     if (!Number.isInteger(pricePer100) || pricePer100 < 100 || pricePer100 > 10000000) {
       return res.status(400).json({
         success: false,
-        error: 'Үнэ 100 MNT-өөс 10,000,000 MNT-ийн хооронд бүхэл тоо байна'
+        error: 'Үнэ 100 ₮-өөс 10,000,000 ₮-ийн хооронд бүхэл тоо байна'
       });
     }
 

@@ -1,0 +1,491 @@
+/* ============================================================
+   The signed-out landing page: the login card in the hero, the gift-card
+   and invite explainers, and the header the workspace grows once a session
+   exists. No price list — prices moved behind the sign-in with the rest of
+   the account-specific figures.
+
+   Loads after marketing.css so it can lean on .why-grid and the FAQ styles
+   already defined there, and before responsive.css.
+   ============================================================ */
+
+/* Every landing block is one of these, so the rhythm down the page is set
+   in one place rather than per-section. */
+.section {
+  padding: 1rem 0 4.5rem;
+}
+
+/* ============================================================
+   Login card — the only action on the landing page
+   ============================================================ */
+
+/* Mounted inside the hero stage, so it is a lighter block on a darker one
+   rather than another panel on the page ground — and with the reassurance
+   list moved out to the stage, it is now only mark, heading and button. A
+   sign-in card should be exactly as tall as the thing it asks you to do. */
+.login-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--border-strong);
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, rgba(180, 35, 42, 0.18), transparent 70%),
+    var(--bg-raise);
+  box-shadow: 0 8px 0 #000, var(--shadow-lg);
+  text-align: center;
+}
+
+/* A painted rule across the top of the card, the way a Roblox dialog is
+   capped. Absolutely placed so it hugs the border radius without a wrapper.
+   Blood into neon — the mark's two colours in the mark's own order. */
+.login-card::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent) 42%, var(--venom) 58%, var(--venom) 100%);
+  box-shadow: 0 0 20px -2px rgba(0, 200, 70, 0.45);
+  content: "";
+}
+
+/* Absolutely placed so the rest of the card stays optically centred: in
+   the flow it pushed the mark and heading off-axis. */
+.login-state {
+  position: absolute;
+  top: 1.15rem;
+  right: 1.15rem;
+}
+
+/* The shield, on a brick — tilted off-axis the way every stroke on the mark
+   is, cut out of the same heavy black outline, and burning the same green.
+   Green rather than red because signing in is not a purchase: it is the live
+   half of the site, and green is the half of the mark that means live.
+
+   The black cut would be invisible against a near-black page on its own,
+   which is exactly why the halo is not optional here — on the logo the black
+   only reads because the neon is behind it. */
+.login-mark {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  margin: 0.5rem auto 1.2rem;
+  border: var(--sticker-w) solid var(--sticker);
+  border-radius: 14px;
+  place-items: center;
+  color: #000;
+  background: var(--venom);
+  box-shadow: 0 var(--lift) 0 var(--venom-deep), var(--glow-lg);
+  transform: rotate(-6deg);
+}
+
+.login-mark svg {
+  transform: rotate(6deg);
+}
+
+.login-mark svg {
+  width: 27px;
+  height: 27px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* ============================================================
+   Feature explainers — gift cards, invites
+
+   Both sections wear the same shape and deliberately the same way round: the
+   object being sold on the left, and on the right the heading that names it
+   with the button that starts it underneath.
+
+   The heading is inside the split rather than above it, which is what makes
+   the shape hold now that the three-step shelf is gone. Spanning a heading
+   across the section and leaving a lone button under it read as a row that
+   had lost its content; pulling the heading down into the column gives the
+   column something to be, and the section becomes a single banded object
+   rather than a title over a gap.
+   ============================================================ */
+
+/* The two explainers share one row wherever the row can hold two of them.
+
+   The row is exactly as wide as every other section on the page, and that is
+   the point. It used to break out full-bleed to 1440px to buy each half
+   700px, which worked in isolation and was wrong on the page: one row wider
+   than everything above and below it, its edges landing 130px outside the
+   line every other section starts and ends on. A pair that fits is worth less
+   than a page that lines up.
+
+   So the split is sized against its own half rather than against the
+   viewport — the object takes 44% of the half up to the 310px it was drawn
+   at, and the gap 4% of it. That is what lets the same rule serve a 455px
+   half at 980px and a 570px half at page width without a breakpoint between
+   them, and it is why the object is a percentage and not a vw clamp: vw
+   stops describing the column the moment the page stops growing with it.
+
+   The binding constraint is the button. It is the widest fixed thing in the
+   text column, and a heading column narrower than the control under it is
+   what makes a pair read as broken rather than as tight. Paired, everything
+   in the row runs a size down from its full-width self — the object 40% of
+   the half to a 250px cap, the heading under 2rem, the button off .btn-lg's
+   full padding — which is what a section reduced to half a row should look
+   like, and it leaves the text column between 255px and 320px against a
+   ~218px button. Below 980px the sections go back to being full-width and
+   stacked, at their full drawn size, where the split has 826px to work in
+   and needs none of this.
+
+   The card in the left column is sized in container units for the same
+   reason (see the illustration block), so it stays a proportioned object
+   across that range instead of a fixed drawing spilling out of its column. */
+.showcase-row {
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: start;
+}
+
+@media (min-width: 980px) {
+  .showcase-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Proportional only while paired. Stacked, the section has the whole page
+     and the object should stay the 310px it was drawn at rather than take
+     40% of 826. Percentages resolve against this grid's own inline size,
+     which is the half — so both terms describe the space they sit in. The
+     170px floor is the width the card's own clamps bottom out at; under it
+     the drawing would start losing its contents rather than its size. */
+  .showcase {
+    grid-template-columns: minmax(0, clamp(170px, 40%, 250px)) minmax(0, 1fr);
+    column-gap: clamp(1rem, 4%, 2.25rem);
+    row-gap: 1rem;
+  }
+
+  /* A half-row heading is not a full-page heading. 2.5rem was set for a
+     measure of 660px; here it has 320px and was wrapping three times into a
+     column that then had to carry a button as well. */
+  .showcase .h2 {
+    font-size: clamp(1.45rem, 2.2vw, 1.95rem);
+  }
+
+  /* Off .btn-lg and onto something between it and the base button. The large
+     size exists to be the one obvious thing on a full-width section; two of
+     them side by side are already obvious. */
+  .showcase-body .btn-lg {
+    min-height: 50px;
+    padding: 0.7rem 1.35rem;
+    font-size: 0.98rem;
+  }
+
+  /* 4.5rem of trailing space under a section that is now half as wide and
+     shorter than it was reads as a gap rather than as separation. */
+  .showcase-row .section {
+    padding-bottom: 3rem;
+  }
+}
+
+/* Three siblings, not two: heading, object, action.
+
+   They are siblings rather than the heading being nested with the button,
+   because the two orders wanted are different. Across, the object holds a
+   tall column of its own and the heading sits above the button beside it.
+   Stacked on a phone, the heading has to come *first* — an untitled picture
+   of a gift card, followed by its title, is a section you have to read
+   backwards. Placing all three explicitly gets both from one DOM order. */
+.showcase {
+  display: grid;
+  grid-template-columns: minmax(0, 310px) minmax(0, 1fr);
+  column-gap: clamp(1.5rem, 3.5vw, 2.75rem);
+  row-gap: 1.25rem;
+  align-items: center;
+}
+
+/* The object spans both rows and stays centred against them. Named for both
+   sections' left-hand slot: the gift-card mock, and the invite percentages. */
+.gift-visual,
+.invite-stats {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  /* Both objects size themselves against this column rather than against the
+     viewport. The column is fluid while paired and fixed otherwise, and only
+     the column knows which — a vw term here would shrink the art on a phone,
+     where the section is full width and there is nothing to shrink for. */
+  container-type: inline-size;
+}
+
+/* Bottom of the upper row, so the title sits directly on top of its button
+   rather than floating at the top of a column as tall as the art. */
+.showcase > .section-head {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  /* No cap. 660px is the measure for a heading running the full page width;
+     paired, this column is 346px and is its own measure. The row gap already
+     supplies the space the margin was for. */
+  max-width: none;
+  margin-bottom: 0;
+}
+
+.showcase-body {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  align-self: start;
+  gap: 1.25rem;
+  justify-items: start;
+}
+
+/* The numbered .step-shelf that used to fill this column is gone, along with
+   .step-card and .step-num. Both sections now hold their object and their
+   button and nothing else — three cards narrating "pay, get a code, send the
+   code" were explaining a transaction nobody was confused by, and they were
+   the tallest thing between the heading and the only control that does
+   anything. Deleted rather than left commented: the markup went with them. */
+
+/* ---------- gift card illustration ---------- */
+
+.gift-visual {
+  display: grid;
+  place-items: center;
+}
+
+/* A physical object — and specifically, a painted one. Heavy black cut line
+   all the way round with the neon burning behind it, tilted off-axis,
+   carrying both brand colours. It is the one place on the page allowed to
+   look like a toy, and the one place besides the marks themselves that
+   spends the outline. */
+/* Every measurement below is a clamp whose maximum is the value the card was
+   drawn at, reached at a 310px column. Above that — stacked, or on a phone —
+   the maximum holds and nothing has changed. Below it the whole card steps
+   down together, which is the difference between a smaller card and a card
+   with its contents falling out of it. */
+.gift-card-mock {
+  position: relative;
+  display: grid;
+  width: min(330px, 100%);
+  padding: clamp(0.85rem, 8cqw, 1.5rem) clamp(0.8rem, 7.3cqw, 1.4rem)
+           clamp(0.8rem, 7.3cqw, 1.4rem);
+  gap: clamp(0.35rem, 3.1cqw, 0.6rem);
+  border: var(--sticker-w) solid var(--sticker);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 86% 6%, rgba(180, 35, 42, 0.5), transparent 46%),
+    linear-gradient(150deg, rgba(0, 200, 70, 0.26), transparent 58%),
+    var(--bg-raise);
+  box-shadow: 0 10px 0 #000, var(--glow-lg), var(--shadow-lg);
+  transform: rotate(-4deg);
+}
+
+/* The Roblox stud, sitting in the corner of the card the way it sits on the
+   mark's forehead — and in the same green, because on the logo the stud is
+   the one shape the neon fills rather than merely outlines. */
+.gift-card-mock::before {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.9rem;
+  width: 15px;
+  height: 15px;
+  border: 3px solid var(--venom-lit);
+  box-shadow: 0 0 14px -2px rgba(0, 200, 70, 0.9);
+  content: "";
+}
+
+.gift-mock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+}
+
+.gift-mock-head .brand {
+  font-size: clamp(0.75rem, 5.4cqw, 1.05rem);
+}
+
+.gift-mock-tag {
+  color: var(--faint);
+  font-size: clamp(0.46rem, 3.2cqw, 0.62rem);
+  font-weight: 700;
+  /* Tracking is the first thing to go: nine letters of it is what pushes the
+     head into the brand beside it before any of the type is actually small. */
+  letter-spacing: clamp(0.09em, 0.8cqw, 0.16em);
+}
+
+/* The one job --tooth has. The pale pink of the grin is the fourth colour on
+   the mark and the only one with nowhere obvious to go in an interface — so
+   it goes on the toy, where a figure printed in something other than white
+   is what makes a mock card read as a manufactured object. */
+.gift-mock-amount {
+  color: var(--tooth);
+  font-family: var(--display);
+  font-size: clamp(1.25rem, 10.8cqw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.gift-mock-code {
+  padding: clamp(0.38rem, 2.6cqw, 0.5rem) clamp(0.4rem, 3.1cqw, 0.6rem);
+  border: var(--stroke) dashed var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--bg-deep);
+  color: var(--venom-text);
+  font-family: var(--mono);
+  font-size: clamp(0.6rem, 4.4cqw, 0.85rem);
+  font-weight: 600;
+  letter-spacing: clamp(0.04em, 0.5cqw, 0.08em);
+  text-align: center;
+}
+
+.gift-mock-foot {
+  display: flex;
+  justify-content: space-between;
+  color: var(--faint);
+  font-size: clamp(0.52rem, 3.5cqw, 0.68rem);
+  font-weight: 500;
+}
+
+/* ---------- invite figures ---------- */
+
+.invite-stats {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.invite-stat {
+  display: grid;
+  padding: 1.4rem;
+  gap: 0.2rem;
+  border: var(--stroke) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  box-shadow: 0 var(--lift) 0 #000;
+  text-align: center;
+}
+
+.invite-stat-value {
+  color: var(--accent-text);
+  font-size: clamp(1.9rem, 4.4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.invite-stat-label {
+  color: var(--dim);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.invite-stats .hint {
+  text-align: center;
+}
+
+/* A step, not a clamp curve like the card's. The card is a drawing and wants
+   to scale whole; these are two boxes of type, and type that shrinks
+   continuously with its container reads as a rendering error rather than as a
+   smaller object.
+
+   Nothing here overflows without it — 2.5rem of "+10%" still clears a 200px
+   box. It is proportion: the object column now tops out at 251px, so this
+   applies across the whole paired range and the boxes are one size there,
+   full size only once the sections unpair and the column goes back to 310. At
+   the paired size the old padding was most of the box, and the pair of them
+   looked like buttons rather than figures. */
+@container (max-width: 265px) {
+  .invite-stats {
+    gap: 0.6rem;
+  }
+
+  .invite-stat {
+    padding: 0.85rem 0.8rem;
+  }
+
+  .invite-stat-value {
+    font-size: 1.45rem;
+  }
+
+  .invite-stat-label {
+    font-size: 0.72rem;
+  }
+}
+
+/* ============================================================
+   Promotions
+   ============================================================ */
+
+.promo-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(270px, 0.7fr);
+  gap: 1.2rem;
+  align-items: start;
+}
+
+/* ============================================================
+   Workspace header — what replaces the hero once signed in
+   ============================================================ */
+
+/* Just the greeting now. The rate pill that sat opposite it was quoting a
+   headline price nobody is actually charged — what a buyer pays depends on
+   their level — so it went the same way as the public price list. */
+.workspace-head {
+  margin-bottom: 1.6rem;
+  padding-top: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.workspace-head .h2 {
+  margin: 0;
+}
+
+/* ============================================================
+   Breakpoints for the blocks above. Every selector here is a class this
+   file introduced, so nothing in responsive.css competes with them.
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .showcase,
+  .promo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* One column, so the explicit placements above have to be released or all
+     three items pile into column 2 and fight over two rows. Handing them back
+     to auto-flow puts them in DOM order — heading, object, button — which is
+     the reading order this markup was written in. */
+  .showcase > .section-head,
+  .showcase > .showcase-body,
+  .gift-visual,
+  .invite-stats {
+    grid-column: 1;
+    grid-row: auto;
+    align-self: auto;
+  }
+
+  .showcase-body {
+    justify-items: stretch;
+  }
+
+  .showcase-body .btn {
+    justify-self: start;
+  }
+
+  .gift-card-mock {
+    transform: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .section {
+    padding: 0.5rem 0 3rem;
+  }
+
+  .login-state {
+    top: 0.95rem;
+    right: 0.95rem;
+  }
+
+  .invite-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .invite-stats .hint {
+    grid-column: 1 / -1;
+  }
+}

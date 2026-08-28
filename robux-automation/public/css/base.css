@@ -1,19 +1,45 @@
 /* ============================================================
-   Ambient background, scroll-reveal states and typographic helpers.
+   Ambient background, scroll-reveal states, typographic helpers and the
+   loading / empty / error states every data list shares.
    ============================================================ */
 
 /* ---------- ambient depth (static, no motion) ---------- */
 
+/* The wall the mark is painted on.
+
+   The old ground was a contour field, because the old sticker was
+   photographed on one. This mark is spray paint on black, and paint on a
+   black wall does exactly one thing to the surface around it: it throws
+   light. So the ground is three washes of that light and nothing else —
+   blood high on the right where the head hangs, neon low on the left and
+   again at the foot of the page, all of them far under the contrast of
+   anything you have to read.
+
+   The contour layer stays, at half the opacity it used to carry and recast
+   in green. At 0.14 you no longer read it as lines; it is the texture that
+   stops a pure-black page from looking like a switched-off screen. Static:
+   a checkout page has no business animating its own background. */
 .bg-blobs {
   position: absolute;
   inset: 0;
   z-index: -1;
+  overflow: hidden;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(201, 168, 106, 0.07), transparent),
-    radial-gradient(ellipse 70% 50% at 100% 28%, rgba(122, 46, 52, 0.07), transparent),
-    radial-gradient(ellipse 60% 45% at 0% 68%, rgba(201, 168, 106, 0.05), transparent),
-    radial-gradient(ellipse 70% 40% at 100% 100%, rgba(122, 46, 52, 0.06), transparent);
+    radial-gradient(ellipse 55% 38% at 72% 4%, rgba(180, 35, 42, 0.2), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 2% 30%, rgba(0, 200, 70, 0.1), transparent 70%),
+    radial-gradient(ellipse 70% 40% at 100% 88%, rgba(180, 35, 42, 0.09), transparent 70%),
+    radial-gradient(ellipse 80% 30% at 50% 100%, rgba(0, 200, 70, 0.07), transparent 70%);
+}
+
+/* The contours ride on their own layer so they can be held at a low opacity
+   without washing out the colour fields above them. */
+.bg-blobs::before {
+  position: absolute;
+  inset: 0;
+  background: url("/img/topo.svg") center / cover no-repeat;
+  opacity: 0.14;
+  content: "";
 }
 
 .bg-blobs span {
@@ -24,9 +50,9 @@
 
 /* Gated behind `.js`, which an inline script in <head> adds. Unconditional
    `opacity: 0` here meant a blocked or broken app.js left the entire
-   storefront as a blank charcoal page — the animation is a nicety and must
-   never be load-bearing for content being visible at all. The same inline
-   script also force-reveals on a timer as a second net. */
+   storefront as a blank page — the animation is a nicety and must never be
+   load-bearing for content being visible at all. The same inline script also
+   force-reveals on a timer as a second net. */
 .js [data-reveal] {
   opacity: 0;
   transform: translateY(14px);
@@ -40,66 +66,231 @@
 
 /* ---------- type helpers ---------- */
 
+/* A hard little label block rather than a soft pill: same shape language as
+   the buttons under it. */
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  margin: 0 0 0.5rem;
-  color: var(--gold-deep);
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-xs);
+  color: var(--accent-text);
+  background: var(--accent-soft);
   font-family: var(--body);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
+/* Display type is heavy, and now it is a display face carrying that weight
+   rather than a text face straining at it. Rubik at 900 is a genuinely fat
+   geometric — blunt terminals, closed apertures, the nearest thing on Google
+   Fonts to a painted stroke that also ships a full Cyrillic. Because the
+   letterforms are wide where Source Sans was narrow, the tracking can be
+   pulled harder than before without closing the counters. */
 .h1 {
   margin-bottom: 1.1rem;
   font-family: var(--display);
-  font-size: clamp(2.2rem, 5vw, 3.5rem);
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.005em;
+  /* Stepped down from the old 2.6/6.2/4.4. Rubik sets appreciably wider than
+     Source Sans at the same size, and the Mongolian headline is long — at the
+     old ceiling it took a fourth line in the hero column. */
+  font-size: clamp(2.35rem, 5.5vw, 3.9rem);
+  font-weight: 900;
+  /* Tight, but not so tight that the red slab below collides with the line
+     above it — a highlighted word is a *block*, and blocks need the room a
+     bare glyph does not. Rubik's own ascenders are shorter than Source Sans's
+     were, which is where the extra hundredth of leading comes from. */
+  line-height: 1.13;
+  letter-spacing: -0.028em;
 }
 
+/* The highlighted words in a headline: a slab of blood behind white type,
+   with the neon burning out from behind the slab. It is the whole mark
+   compressed into one element — red mass, green light — and it is the only
+   place in the page's type where the glow is spent at all.
+
+   Red rather than green, even though green is the louder colour, because
+   the headline is a *mass* and green is never a mass on the logo. A green
+   slab here would also put a second large green area beside the button, and
+   the button has to stay the loudest thing on the page. */
 .h1 .grad {
-  color: var(--gold);
-  font-style: italic;
+  display: inline-block;
+  margin: 0 0.04em;
+  padding: 0 0.2em 0.04em;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 var(--lift) 0 var(--accent-deep),
+              0 0 34px -4px rgba(0, 200, 70, 0.4);
+  transform: rotate(-1.4deg);
 }
 
 .h2 {
   margin-bottom: 0.5rem;
   font-family: var(--display);
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  font-weight: 700;
-  letter-spacing: -0.005em;
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.14;
+  letter-spacing: -0.024em;
 }
 
 .h3 {
   margin-bottom: 0.3rem;
   font-family: var(--display);
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 .lede {
-  max-width: 560px;
+  max-width: 54ch;
   color: var(--dim);
-  font-size: clamp(1rem, 1.6vw, 1.1rem);
+  font-size: clamp(1.02rem, 1.7vw, 1.15rem);
 }
 
 .hint {
   margin: 0.4rem 0 0;
   color: var(--faint);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
 }
 
-/* The single headline figure a page is really about: the live Robux rate on
-   the storefront, the price preview on the dashboard. */
-.rate-value {
-  display: block;
-  margin-bottom: 1.2rem;
-  color: var(--gold);
+/* ============================================================
+   Data states — loading, empty, error
+
+   Every list on this site fetches from somewhere and can therefore be in one
+   of four states, not one. They used to share a single grey line of text
+   ("Ачаалж байна…", "…алга", "…ачаалж чадсангүй"), which made a failed
+   request indistinguishable at a glance from a genuinely empty list, and
+   offered no way to retry either. See common/dom.js for the renderers.
+   ============================================================ */
+
+/* ---------- skeleton ---------- */
+
+.skeleton-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border: var(--stroke) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.skeleton-row {
+  height: 66px;
+}
+
+.skeleton-tile {
+  height: 84px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-hover);
+}
+
+/* The sheen is what separates "loading" from "an empty grey box". */
+.skeleton::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.07),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+  content: "";
+}
+
+@keyframes skeleton-sweep {
+  100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+/* ---------- empty / error ---------- */
+
+.state {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 2rem 1.25rem;
+  border: var(--stroke) dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+
+/* Squircle, not a circle: the icon plate now matches the shape of every
+   other block on the page. */
+.state-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 0.35rem;
+  border: var(--stroke) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  place-items: center;
+  color: var(--venom-text);
+  background: var(--bg-soft);
+  font-size: 1.15rem;
+}
+
+.state-title {
+  color: var(--text);
   font-family: var(--display);
-  font-size: clamp(2rem, 4.4vw, 2.5rem);
+  font-size: 1.02rem;
   font-weight: 700;
+}
+
+.state-body {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+
+.state .btn {
+  margin-top: 0.9rem;
+}
+
+/* An error is not an empty list, and must not be dressed as one. */
+.state-error {
+  border-color: rgba(255, 122, 107, 0.42);
+  border-style: solid;
+  background: var(--danger-bg);
+}
+
+.state-error .state-icon {
+  color: var(--danger);
+  border-color: rgba(255, 122, 107, 0.45);
+}
+
+.state-error .state-title {
+  color: var(--danger);
+}
+
+/* Compact variant, for a state that has to sit inside a panel column rather
+   than fill the page. */
+.state-inline {
+  padding: 1.25rem 1rem;
+}
+
+.state-inline .state-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 0.95rem;
 }

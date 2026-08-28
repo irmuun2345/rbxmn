@@ -1,18 +1,23 @@
 // The referral programme: who owns which code, who they brought in, what
 // that earned, and what has been paid out against it.
 
-const { run, seedSettings } = require('./helpers');
+const { run, addMissingColumns, seedSettings } = require('./helpers');
 
 module.exports = function applyReferralSchema(db) {
-  // One code per account, chosen by the account holder. The code is stored
-  // uppercase and carries a UNIQUE index, which is what makes duplicates
-  // impossible regardless of how many people try to claim the same name at
-  // once — the second INSERT simply fails.
+  // One code per account, issued by an admin to the account that will own it.
+  // The code is stored uppercase and carries a UNIQUE index, which is what
+  // makes duplicates impossible regardless of how many people try to claim the
+  // same name at once — the second INSERT simply fails.
   //
   // `is_influencer` marks a content-creator partnership; the two override
   // columns let one creator be given better terms than the site default
   // without changing anything for everyone else. NULL means "use the global
   // setting", which is different from 0 ("this creator earns nothing").
+  //
+  // `max_uses` caps how many customers may ever bind this code — a whole-code
+  // budget, not a per-customer one: anyone may use it until the cap is
+  // reached, and then nobody can. 0 means uncapped. `created_by_admin_id`
+  // records who issued it, since codes are handed out rather than claimed.
   run(db, 'referral_codes table', `CREATE TABLE IF NOT EXISTS referral_codes (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL UNIQUE,
@@ -20,10 +25,19 @@ module.exports = function applyReferralSchema(db) {
     is_influencer BOOLEAN NOT NULL DEFAULT FALSE,
     bonus_percent_override REAL,
     commission_percent_override REAL,
+    max_uses INTEGER NOT NULL DEFAULT 0,
+    created_by_admin_id INTEGER,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   )`);
+
+  // Codes that predate the usage cap stay uncapped, which is what they were
+  // implicitly promised when they were issued.
+  addMissingColumns(db, 'referral_codes', [
+    ['max_uses', 'INTEGER NOT NULL DEFAULT 0'],
+    ['created_by_admin_id', 'INTEGER']
+  ]);
 
   // Uppercase is enforced on write, but a case-insensitive index means a
   // lookup can never be defeated by a casing trick either. Postgres has no
@@ -91,14 +105,16 @@ module.exports = function applyReferralSchema(db) {
     FOREIGN KEY (referral_code_id) REFERENCES referral_codes (id)
   )`);
 
-  // Defaults. Percentages are deliberately conservative; all are editable
-  // from the admin dashboard.
+  // Defaults. Both percentages live inside the 1–5% band the programme is
+  // sold on (0 switches that half off); all are editable from the admin
+  // dashboard, and a per-code override can move one creator inside that band
+  // without moving everyone.
   seedSettings(db, [
     ['referral_enabled', '1'],
     // What the customer gets: extra Robux on top of what they paid for.
-    ['referral_bonus_percent', '5'],
+    ['referral_bonus_percent', '3'],
     // What the creator earns per referred order, as a % of its Robux.
-    ['referral_commission_percent', '10'],
+    ['referral_commission_percent', '5'],
     // 'every_order' or 'first_order' — how long the customer's bonus lasts.
     ['referral_bonus_scope', 'every_order'],
     // 0 = uncapped. A ceiling on the customer bonus per order.

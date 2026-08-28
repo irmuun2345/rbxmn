@@ -1,15 +1,55 @@
-// Time-boxed bonus promotions: the header countdown banner and the Events
-// tab that lists what is running and what is coming.
+// Time-boxed bonus promotions: the header countdown banner, the public
+// promotions block on the landing page and the Events tab in the workspace.
+//
+// The same markup is written into both places rather than one being a
+// summary of the other — a visitor deciding whether to sign up should see
+// exactly what a signed-in customer sees.
 
-import { $, escapeHtml } from '../common/dom.js';
+import { $, escapeHtml, renderLoading, renderEmpty, renderError } from '../common/dom.js';
 import { request } from '../common/api.js';
 import { formatMnt, formatNumber, formatEventDate, formatClock, formatDuration } from '../common/format.js';
 
 let eventsLoaded = false;
 
+const eventLists = () => document.querySelectorAll('[data-events-list]');
+const dealLists = () => document.querySelectorAll('[data-event-deals]');
+
+function writeAll(nodes, html) {
+  nodes.forEach((node) => { node.innerHTML = html; });
+}
+
+// Both copies of the list get the same state, so the renderers are applied
+// per node rather than through writeAll's raw innerHTML.
+function stateAll(nodes, render) {
+  nodes.forEach(render);
+}
+
+function eventRow(event, now) {
+  const starts = new Date(event.startsAt);
+  const ends = new Date(event.endsAt);
+  // Parallel phrasing rather than gluing a case suffix onto a number, which
+  // does not inflect cleanly in Mongolian.
+  const remaining = event.live
+    ? `Дуусахад ${formatDuration(ends.getTime() - now)} үлдлээ`
+    : `Эхлэхэд ${formatDuration(starts.getTime() - now)} үлдлээ`;
+  return `
+    <div class="event-row${event.live ? ' is-live' : ''}">
+      <div class="event-row-main">
+        <strong>${escapeHtml(event.name)}</strong>
+        <small>${escapeHtml(formatEventDate(starts))} — ${escapeHtml(formatEventDate(ends))}</small>
+        <small>${escapeHtml(remaining)}</small>
+      </div>
+      <div class="event-row-side">
+        <span class="event-bonus tabular">+${Number(event.bonusPercent)}%</span>
+        <span class="badge ${event.live ? 'badge-ok' : 'badge-pending'}">${event.live ? 'Идэвхтэй' : 'Удахгүй'}</span>
+      </div>
+    </div>`;
+}
+
 export async function loadEvents({ force = false } = {}) {
   if (eventsLoaded && !force) return;
-  const list = $('events-list');
+  if (!eventsLoaded) stateAll(eventLists(), (node) => renderLoading(node, { rows: 2 }));
+
   try {
     const data = await request('/events');
     eventsLoaded = true;
@@ -18,45 +58,45 @@ export async function loadEvents({ force = false } = {}) {
     // opening it — rather the point of a time-boxed promotion.
     $('tab-events-pip').hidden = !data.events.some((event) => event.live);
 
-    if (!data.events.length) {
-      list.innerHTML = '<p class="hint">Одоогоор идэвхтэй эвент алга. Шинэ урамшуулал зарлагдмагц энд харагдана.</p>';
+    const now = Date.now();
+    if (data.events.length) {
+      writeAll(eventLists(), data.events.map((event) => eventRow(event, now)).join(''));
     } else {
-      const now = Date.now();
-      list.innerHTML = data.events.map((event) => {
-        const starts = new Date(event.startsAt);
-        const ends = new Date(event.endsAt);
-        // Parallel phrasing rather than gluing a case suffix onto a number,
-        // which does not inflect cleanly in Mongolian.
-        const remaining = event.live
-          ? `Дуусахад ${formatDuration(ends.getTime() - now)} үлдлээ`
-          : `Эхлэхэд ${formatDuration(starts.getTime() - now)} үлдлээ`;
-        return `
-          <div class="event-row${event.live ? ' is-live' : ''}">
-            <div class="event-row-main">
-              <strong>${escapeHtml(event.name)}</strong>
-              <small>${escapeHtml(formatEventDate(starts))} — ${escapeHtml(formatEventDate(ends))}</small>
-              <small>${escapeHtml(remaining)}</small>
-            </div>
-            <div class="event-row-side">
-              <span class="event-bonus tabular">+${Number(event.bonusPercent)}%</span>
-              <span class="badge ${event.live ? 'badge-active' : ''}">${event.live ? 'Идэвхтэй' : 'Удахгүй'}</span>
-            </div>
-          </div>`;
-      }).join('');
+      stateAll(eventLists(), (node) => renderEmpty(node, {
+        icon: '◷',
+        title: 'Идэвхтэй эвент алга',
+        body: 'Шинэ урамшуулал зарлагдмагц энд, мөн хуудасны дээд талд харагдана.',
+        inline: true
+      }));
     }
 
     const deals = data.discountedPackages;
     $('event-deals-panel').hidden = !deals.length;
-    $('event-deals-list').innerHTML = deals.map((pkg) => `
-      <div class="editable-row">
-        <div>
-          <strong>${formatNumber(pkg.robuxAmount)} R$</strong>
-          <small><s>${formatMnt(pkg.priceMnt)}</s> → ${formatMnt(pkg.effectivePriceMnt)}</small>
-        </div>
-        <span class="badge badge-active">-${Number(pkg.discountPercent)}%</span>
-      </div>`).join('');
+    $('landing-deals-panel').hidden = !deals.length;
+    writeAll(dealLists(), deals.map((pkg) => `
+      <div class="data-row" data-tone="ok">
+        <span class="data-row-main">
+          <span class="data-row-title">${formatNumber(pkg.robuxAmount)} Robux</span>
+          <span class="data-row-meta">
+            <span><s>${formatMnt(pkg.priceMnt)}</s></span>
+            <span class="sep">→</span>
+            <span>${formatMnt(pkg.effectivePriceMnt)}</span>
+          </span>
+        </span>
+        <span class="data-row-side">
+          <span class="badge badge-ok">-${Number(pkg.discountPercent)}%</span>
+        </span>
+      </div>`).join(''));
+
+    // An empty promotions block on the landing page is worse than none: it
+    // reads as something that failed to load. Nothing running, nothing shown.
+    $('promos').hidden = !data.events.length && !deals.length;
   } catch {
-    list.innerHTML = '<p class="hint">Эвентийн мэдээлэл ачаалж чадсангүй.</p>';
+    stateAll(eventLists(), (node) => renderError(node, {
+      title: 'Эвентүүд ачаалагдсангүй',
+      retry: () => loadEvents({ force: true }),
+      inline: true
+    }));
   }
 }
 

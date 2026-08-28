@@ -13,11 +13,18 @@ const ERROR_STATUS = {
   CODE_TAKEN: 409,
   CODE_NOT_FOUND: 404,
   CODE_INACTIVE: 409,
+  CODE_EXHAUSTED: 409,
   ALREADY_HAS_CODE: 409,
   ALREADY_REFERRED: 409,
   SELF_REFERRAL: 403,
   NOT_NEW_CUSTOMER: 403,
-  REFERRALS_DISABLED: 503
+  REFERRALS_DISABLED: 503,
+  OWNER_REQUIRED: 400,
+  OWNER_NOT_FOUND: 404,
+  PERCENT_REQUIRED: 400,
+  PERCENT_INVALID: 400,
+  PERCENT_RANGE: 400,
+  MAX_USES_INVALID: 400
 };
 
 function promisify(dbHelpers, method, ...args) {
@@ -51,6 +58,7 @@ class ReferralController {
       ]);
 
       const stats = code ? await promisify(this.dbHelpers, 'getReferralStats', code.id) : null;
+      const maxUses = code ? Number(code.max_uses) || 0 : 0;
 
       res.json({
         success: true,
@@ -68,8 +76,15 @@ class ReferralController {
           isActive: Boolean(code.is_active),
           createdAt: code.created_at,
           // An override means this creator has negotiated terms; show theirs.
-          bonusPercent: code.bonus_percent_override ?? settings.bonusPercent,
-          commissionPercent: code.commission_percent_override ?? settings.commissionPercent,
+          bonusPercent: referrals.clampToBand(code.bonus_percent_override ?? settings.bonusPercent),
+          commissionPercent: referrals.clampToBand(
+            code.commission_percent_override ?? settings.commissionPercent
+          ),
+          // How much of the code's budget is left. null means uncapped —
+          // distinct from 0, which means it is spent.
+          maxUses,
+          usedCount: stats.referredUsers,
+          remainingUses: maxUses > 0 ? Math.max(maxUses - stats.referredUsers, 0) : null,
           stats
         } : null,
         referredBy: attribution ? {
@@ -80,6 +95,29 @@ class ReferralController {
       });
     } catch (error) {
       console.error('Get referral info error:', error);
+      res.status(500).json({ success: false, error: 'Урилгын мэдээллийг авч чадсангүй.' });
+    }
+  }
+
+  // GET /referral/info — the two percentages, with no session behind the
+  // request. The landing page quotes them at visitors who have not signed in
+  // yet, and quoting a number the orders do not actually pay would be worse
+  // than quoting none: this reads the same settings the payout path does.
+  //
+  // Nothing here is per-user. Balances, stats and code ownership stay on the
+  // authenticated /referral/me.
+  async getPublicInfo(req, res) {
+    try {
+      const settings = await referrals.getReferralSettings(this.dbHelpers);
+      res.json({
+        success: true,
+        enabled: settings.enabled,
+        bonusPercent: settings.bonusPercent,
+        commissionPercent: settings.commissionPercent,
+        minPayoutRobux: settings.minPayoutRobux
+      });
+    } catch (error) {
+      console.error('Get public referral info error:', error);
       res.status(500).json({ success: false, error: 'Урилгын мэдээллийг авч чадсангүй.' });
     }
   }
@@ -176,13 +214,14 @@ class ReferralController {
     const enabled = req.body.enabled ? '1' : '0';
     const newCustomersOnly = req.body.newCustomersOnly ? '1' : '0';
 
-    // Capped at 50% because both percentages are paid out of margin — a
-    // typo of 500 here would quietly sell Robux at a loss on every order.
-    if (!Number.isFinite(bonusPercent) || bonusPercent < 0 || bonusPercent > 50) {
-      return res.status(400).json({ success: false, error: 'Хэрэглэгчийн бонус 0-50% хооронд байна.' });
-    }
-    if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 50) {
-      return res.status(400).json({ success: false, error: 'Инфлюенсерийн шимтгэл 0-50% хооронд байна.' });
+    // Held to the 1–5% band because both percentages are paid out of margin —
+    // a typo of 50 here would quietly sell Robux at a loss on every order.
+    // 0 is allowed and switches that half of the programme off.
+    try {
+      referrals.normalisePercent(bonusPercent, 'Хэрэглэгчийн бонус', { allowNull: false });
+      referrals.normalisePercent(commissionPercent, 'Инфлюенсерийн шимтгэл', { allowNull: false });
+    } catch (error) {
+      return res.status(400).json({ success: false, error: error.message, code: error.code });
     }
     if (!Number.isInteger(maxBonusRobux) || maxBonusRobux < 0) {
       return res.status(400).json({ success: false, error: 'Дээд хязгаар 0 буюу түүнээс их бүхэл тоо байна.' });
@@ -239,6 +278,8 @@ class ReferralController {
         success: true,
         defaultBonusPercent: settings.bonusPercent,
         defaultCommissionPercent: settings.commissionPercent,
+        percentMin: referrals.PERCENT_MIN,
+        percentMax: referrals.PERCENT_MAX,
         codes: codes.map((row) => ({
           id: row.id,
           code: row.code,
@@ -249,6 +290,12 @@ class ReferralController {
           isActive: Boolean(row.is_active),
           bonusPercentOverride: row.bonus_percent_override,
           commissionPercentOverride: row.commission_percent_override,
+          maxUses: Number(row.max_uses) || 0,
+          // Uncapped codes report null rather than a number, so the UI never
+          // has to guess whether 0 means "spent" or "no limit".
+          remainingUses: Number(row.max_uses) > 0
+            ? Math.max(Number(row.max_uses) - Number(row.referred_users), 0)
+            : null,
           referredUsers: Number(row.referred_users),
           completedOrders: Number(row.completed_orders),
           drivenRobux: Number(row.driven_robux),
@@ -264,6 +311,67 @@ class ReferralController {
     }
   }
 
+  // POST /admin/referrals/codes — issue a code to an account.
+  //
+  // Codes are handed out, not claimed: the admin picks who owns it, what it
+  // pays, and how many customers may ever redeem it. All three are set here
+  // rather than being defaults the owner could change afterwards.
+  async issueCode(req, res) {
+    try {
+      const settings = await referrals.getReferralSettings(this.dbHelpers);
+
+      const username = String(req.body.ownerUsername || '').trim();
+      if (!username) {
+        return res.status(400).json({
+          success: false, error: 'Кодыг эзэмших хэрэглэгчийн нэрийг оруулна уу.', code: 'OWNER_REQUIRED'
+        });
+      }
+
+      const owner = await promisify(this.dbHelpers, 'getUserByUsername', username);
+      if (!owner) {
+        return res.status(404).json({
+          success: false, error: `"${username}" нэртэй хэрэглэгч олдсонгүй.`, code: 'OWNER_NOT_FOUND'
+        });
+      }
+
+      const created = await referrals.issueCodeForOwner(this.dbHelpers, {
+        ownerUserId: owner.id,
+        rawCode: req.body.code,
+        maxUses: req.body.maxUses,
+        bonusPercent: req.body.bonusPercentOverride,
+        commissionPercent: req.body.commissionPercentOverride,
+        isInfluencer: Boolean(req.body.isInfluencer),
+        adminId: req.session?.adminId ?? null
+      });
+
+      await recordAdminAction(this.dbHelpers, req, ACTIONS.REFERRAL_CODE_CREATED, {
+        entityType: 'referral_code',
+        entityId: created.id,
+        details: {
+          code: created.code,
+          owner: owner.username,
+          maxUses: created.maxUses,
+          bonusPercentOverride: req.body.bonusPercentOverride ?? null,
+          commissionPercentOverride: req.body.commissionPercentOverride ?? null,
+          isInfluencer: Boolean(req.body.isInfluencer)
+        }
+      });
+
+      res.json({
+        success: true,
+        message: created.maxUses > 0
+          ? `"${created.code}" код ${owner.username}-д олгогдлоо. ${created.maxUses} хүн ашиглана.`
+          : `"${created.code}" код ${owner.username}-д олгогдлоо. Хязгааргүй.`,
+        code: created.code,
+        maxUses: created.maxUses,
+        bonusPercent: req.body.bonusPercentOverride ?? settings.bonusPercent,
+        commissionPercent: req.body.commissionPercentOverride ?? settings.commissionPercent
+      });
+    } catch (error) {
+      this.respondWithError(res, error, 'Код олгож чадсангүй.');
+    }
+  }
+
   // PUT /admin/referrals/codes/:id — flag a creator as a partner and give
   // them their own terms. Null overrides mean "follow the global setting".
   async updateCodeTerms(req, res) {
@@ -272,26 +380,21 @@ class ReferralController {
       return res.status(400).json({ success: false, error: 'Кодын ID буруу байна.' });
     }
 
-    const parsePercent = (value, label) => {
-      if (value === null || value === undefined || value === '') return null;
-      const parsed = Number(value);
-      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 50) {
-        throw Object.assign(new Error(`${label} 0-50% хооронд байна.`), { code: 'BAD_PERCENT' });
-      }
-      return parsed;
-    };
-
     try {
-      const bonusOverride = parsePercent(req.body.bonusPercentOverride, 'Бонус');
-      const commissionOverride = parsePercent(req.body.commissionPercentOverride, 'Шимтгэл');
+      const bonusOverride = referrals.normalisePercent(req.body.bonusPercentOverride, 'Бонус');
+      const commissionOverride = referrals.normalisePercent(req.body.commissionPercentOverride, 'Шимтгэл');
+      const maxUses = referrals.normaliseMaxUses(req.body.maxUses);
 
       const result = await promisify(
         this.dbHelpers, 'updateReferralCodeTerms',
         id,
-        Boolean(req.body.isInfluencer),
-        bonusOverride,
-        commissionOverride,
-        req.body.isActive === undefined ? true : Boolean(req.body.isActive)
+        {
+          isInfluencer: Boolean(req.body.isInfluencer),
+          bonusPercentOverride: bonusOverride,
+          commissionPercentOverride: commissionOverride,
+          maxUses,
+          isActive: req.body.isActive === undefined ? true : Boolean(req.body.isActive)
+        }
       );
       if (!result.changes) {
         return res.status(404).json({ success: false, error: 'Код олдсонгүй.' });
@@ -304,17 +407,14 @@ class ReferralController {
           isInfluencer: Boolean(req.body.isInfluencer),
           bonusPercentOverride: bonusOverride,
           commissionPercentOverride: commissionOverride,
+          maxUses,
           isActive: req.body.isActive === undefined ? true : Boolean(req.body.isActive)
         }
       });
 
       res.json({ success: true, message: 'Кодын нөхцөл шинэчлэгдлээ.' });
     } catch (error) {
-      if (error.code === 'BAD_PERCENT') {
-        return res.status(400).json({ success: false, error: error.message });
-      }
-      console.error('Update referral terms error:', error);
-      res.status(500).json({ success: false, error: 'Нөхцөлийг шинэчилж чадсангүй.' });
+      this.respondWithError(res, error, 'Нөхцөлийг шинэчилж чадсангүй.');
     }
   }
 
@@ -347,7 +447,7 @@ class ReferralController {
       if (robuxAmount > stats.balanceRobux) {
         return res.status(409).json({
           success: false,
-          error: `Үлдэгдлээс их дүн төлөх боломжгүй. Одоогийн үлдэгдэл: ${stats.balanceRobux} R$.`
+          error: `Үлдэгдлээс их дүн төлөх боломжгүй. Одоогийн үлдэгдэл: ${stats.balanceRobux} Robux.`
         });
       }
 
@@ -364,7 +464,7 @@ class ReferralController {
 
       res.json({
         success: true,
-        message: `${robuxAmount.toLocaleString('mn-MN')} R$ төлөлт бүртгэгдлээ.`,
+        message: `${robuxAmount.toLocaleString('mn-MN')} Robux төлөлт бүртгэгдлээ.`,
         balanceRobux: stats.balanceRobux - robuxAmount
       });
     } catch (error) {

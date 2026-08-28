@@ -3,36 +3,194 @@
    Loads last so its overrides win.
    ============================================================ */
 
-/* ============================================================
-   Responsive
-   ============================================================ */
-
 @media (max-width: 900px) {
-  .hero, .grid-2, .price-editor-grid {
+  /* The hero collapses to one column: headline, then the card.
+
+     This block used to name `.hero` and `.hero::before`, and neither of them
+     exists as a grid or a cap — the stage inside .hero is what carries both.
+     So the two rules did nothing, and .hero-stage kept its desktop tracks all
+     the way down: `minmax(320px, 0.9fr)` on the sign-in column, which a grid
+     cannot shrink below 320px. On a 360px phone that left no room at all for
+     the copy column and pushed the card past the right edge — and because
+     html carries `overflow-x: clip`, the overhang was not even scrollable to.
+     The landing page was unusable on the device most of these orders are
+     placed from. */
+  .hero-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .grid-2 {
     grid-template-columns: 1fr;
   }
 
-  .steps, .why-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.2rem;
-  }
-
-  .footer-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
+  /* The brand takes the full width and the link columns share the row
+     beneath it, rather than all four squeezing into one line. */
   .footer-brand {
-    grid-column: 1 / -1;
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .footer-col {
+    flex: 1 1 0;
+  }
+}
+
+/* ============================================================
+   Phone: the tab strip becomes a bottom bar
+
+   Five tabs across the top of a phone left every label truncated and the
+   whole strip scrolling sideways with no hint that it did — so the last tab
+   might as well not have existed. Down here the same markup becomes a fixed
+   bottom bar, which is where the thumb already is, and each tab gets its
+   icon above a label short enough to read.
+   ============================================================ */
+
+@media (max-width: 720px) {
+  :root {
+    --tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Only the signed-in page has a bottom bar, so only it reserves the room.
+     gates.js puts this class on <body> alongside revealing the workspace. */
+  body.has-tabbar {
+    padding-bottom: var(--tabbar-h);
+  }
+
+  .tabs {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 45;
+    margin: 0;
+    padding: 0.35rem 0.4rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.15rem;
+    border: 0;
+    border-top: var(--stroke) solid var(--border);
+    border-radius: 0;
+    background: rgba(11, 13, 11, 0.97);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 -12px 30px -20px rgba(0, 0, 0, 0.95);
+    overflow-x: visible;
+  }
+
+  .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.4rem 0.15rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.68rem;
+    font-weight: 600;
+  }
+
+  /* A solid green key under the thumb was too much ink for a bar that is
+     always on screen — and at this size the glow under it would smear into
+     the bar rather than lift the key off it. Its bottom edge would be
+     clipped by the safe-area padding anyway. The icon and label carry the
+     state instead, tinted rather than filled. */
+  .tab[aria-selected="true"] {
+    color: var(--venom-text);
+    background: var(--venom-soft);
+    box-shadow: none;
+  }
+
+  .tab[aria-selected="true"] .tab-count {
+    color: #000;
+    background: var(--venom);
+  }
+
+  .tab-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* 'Robux авах' in a fifth of a 360px screen ellipsises to 'Rob…'. Each tab
+     carries a short form for exactly this width. */
+  .tab-label {
+    display: none;
+  }
+
+  .tab-short {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The lock and the pip cannot have a column of their own down here, so
+     they ride on the icon. */
+  .tab-lock,
+  .tab-pip,
+  .tab-count {
+    position: absolute;
+    top: 0.15rem;
+    right: 50%;
+    margin-right: -22px;
+  }
+
+  .tab-count {
+    line-height: 17px;
+    min-width: 17px;
+    font-size: 0.62rem;
+  }
+
+  /* The workspace ends above the bar rather than behind it. */
+  .workspace {
+    padding-bottom: 1.5rem;
   }
 }
 
 @media (max-width: 620px) {
   :root {
-    --topbar-h: 60px;
+    --topbar-h: 62px;
   }
 
   .topbar-inner {
-    min-height: 60px;
+    min-height: 62px;
+  }
+
+  /* The stage's own padding is a clamp that bottoms out at 2rem — 64px of
+     chrome on top of the page's 40px of gutter, which on a 360px screen left
+     the headline about 256px to live in. Down here it gives most of that
+     back, and the radius comes in with it so the block still reads as a
+     rounded object rather than as a full-bleed band. */
+  .hero-stage {
+    padding: 1.6rem 1.15rem 1.9rem;
+    border-radius: 18px;
+    gap: 1.6rem;
+  }
+
+  .hero {
+    padding-bottom: 2.5rem;
+  }
+
+  /* Three chips of reassurance are worth about a line and a half here, not
+     three — they sit between the headline and the button, and every pixel
+     they take is a pixel the sign-in card falls further below the fold. */
+  .hero-notes {
+    margin-top: 1.1rem;
+    gap: 0.4rem;
+  }
+
+  .hero-notes li {
+    padding: 0.32rem 0.6rem 0.32rem 0.45rem;
+    font-size: 0.75rem;
+  }
+
+  /* Uppercase at 0.7rem is 11px, which is fine on a monitor at arm's length
+     and mean on a phone held in one hand. The status word on an order row is
+     not decoration — it is the thing the row is being scanned for. */
+  .badge {
+    font-size: 0.74rem;
+  }
+
+  .data-row-meta {
+    font-size: 0.78rem;
   }
 
   .nav-toggle {
@@ -41,56 +199,49 @@
   }
 
   /* The links move into a panel under the bar rather than disappearing.
-     The order CTA stays visible in the bar at all times — it is the one
+     The sign-in CTA stays visible in the bar at all times — it is the one
      action worth a permanent slot. */
   .nav {
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
 
   .nav-links {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 0.5rem);
     right: 0;
     left: 0;
     z-index: 30;
     display: none;
-    padding: 0.4rem 1.25rem 1rem;
-    border-bottom: 1px solid var(--border);
+    padding: 0.5rem;
+    border: var(--stroke) solid var(--border);
+    border-radius: var(--radius);
     /* Opaque, not translucent: this panel sits directly over the hero
-       headline, and letting 3% of a 3.5rem serif through reads as a
+       headline, and letting 4% of a 4rem display face through reads as a
        rendering fault rather than as depth. */
-    background: var(--bg);
-    box-shadow: 0 18px 30px -22px rgba(0, 0, 0, 0.9);
+    background: var(--bg-soft);
+    box-shadow: var(--shadow-lg);
   }
 
   .nav-links.is-open {
     display: grid;
+    gap: 0.15rem;
   }
 
   .nav-links .nav-link {
     display: flex;
-    min-height: 44px;
+    min-height: 46px;
     align-items: center;
-    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     font-size: 0.95rem;
   }
 
   .nav-link-cta {
-    font-size: 0.8rem;
-  }
-
-  /* Four tabs have to fit without scrolling. A tab strip that scrolls gives
-     no hint that it does, so the last tab may as well not exist — the same
-     trap as hiding the nav outright. Tighten the type instead. */
-  .tab {
-    padding: 0.55rem 0.45rem;
-    gap: 0.28rem;
+    padding: 0.45rem 0.9rem;
     font-size: 0.82rem;
   }
 
-  .tab-lock {
-    width: 11px;
-    height: 11px;
+  .account-name {
+    display: none;
   }
 
   .why-grid {
@@ -98,12 +249,8 @@
   }
 
   .footer-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .footer-bottom {
     flex-direction: column;
-    align-items: flex-start;
+    gap: 2rem;
   }
 
   .scroll-cue {
@@ -114,8 +261,24 @@
     grid-template-columns: 1fr;
   }
 
-  .package-grid {
-    grid-template-columns: repeat(2, 1fr);
+
+  /* The right-hand column of a data row goes under the left rather than
+     squeezing a price and a status badge into 40% of a phone. */
+  .data-row {
+    grid-template-columns: 1fr;
+  }
+
+  .data-row-side {
+    grid-auto-flow: column;
+    justify-content: start;
+    justify-items: start;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: left;
+  }
+
+  .list-toolbar {
+    align-items: flex-start;
   }
 
   .stat-strip {
@@ -145,9 +308,9 @@
   }
 
   .stepper-dot {
-    width: 26px;
-    height: 26px;
-    font-size: 0.7rem;
+    width: 28px;
+    height: 28px;
+    font-size: 0.72rem;
   }
 
   .stepper-item::before {
@@ -181,7 +344,7 @@
   }
 
   tr {
-    border: 1px solid var(--border);
+    border: var(--stroke) solid var(--border);
     border-radius: var(--radius-sm);
     padding: 0.5rem;
   }
@@ -215,6 +378,65 @@
 
   .empty-cell::before {
     display: none;
+  }
+}
+
+/* ============================================================
+   Touch
+
+   Keyed on the pointer, not on the width, because the two are not the same
+   question: a tablet at 900px is a touchscreen and a laptop at 600px is not.
+   ============================================================ */
+
+@media (hover: none) {
+  /* A touchscreen has no hover to leave. Tapping a button fires :hover, and
+     it stays fired until you tap something else — so every control that
+     lifts on hover stayed lifted after being pressed, which reads as a
+     control stuck mid-press. The press itself is :active and still travels,
+     which is the feedback that actually matters on a phone. */
+  .btn:hover,
+  .btn-primary:hover,
+  .btn-blood:hover,
+  .nav-link-cta:hover,
+  .why-card:hover {
+    transform: none;
+  }
+
+  .btn-primary:hover {
+    background: var(--venom);
+    box-shadow: 0 var(--lift) 0 var(--venom-deep),
+                0 14px 32px -12px rgba(0, 200, 70, 0.55);
+  }
+
+  .btn-blood:hover {
+    box-shadow: 0 var(--lift) 0 var(--accent-deep),
+                0 14px 30px -14px rgba(180, 35, 42, 0.75);
+  }
+
+  .nav-link-cta:hover {
+    background: var(--venom);
+    box-shadow: 0 var(--lift-sm) 0 var(--venom-deep),
+                0 10px 24px -10px rgba(0, 200, 70, 0.5);
+  }
+
+  .why-card:hover {
+    box-shadow: 0 var(--lift) 0 #000;
+  }
+
+  /* 36px is a comfortable click and a poor tap. Apple asks for 44 and
+     Android for 48; the filter row is the only control on the site that was
+     under either, and a mis-tapped filter silently shows you the wrong
+     list. */
+  .chip {
+    min-height: 44px;
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  /* Same reason, for the disclosure rows a thumb has to hit. */
+  .faq-item summary {
+    padding-top: 1.2rem;
+    padding-bottom: 1.2rem;
   }
 }
 

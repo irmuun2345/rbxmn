@@ -18,11 +18,53 @@ function getSettingValue(dbHelpers, key) {
 // apart: a buyer joining today cannot be paid out today, so admission has to
 // happen as early as possible and independently of any delivery attempt.
 // Never throws for the ordinary "no request pending" case.
+//
+// Admission is a convenience, not a precondition of getting paid. A group
+// whose join requests are approved by a human — or one anybody can walk into
+// — never needs the bot to hold member-management rights at all, and letting
+// a refusal here abort the run would strand the payout of a buyer who is
+// already a member and waiting on nothing. So the permission refusal is
+// reported and stepped over; the eligibility check that follows is what
+// actually decides whether this buyer can be paid.
+//
+// Only the permission refusal is swallowed. Anything else — a dead cookie, a
+// network failure, Roblox returning something unexpected — still throws,
+// because those say nothing about admission and everything about whether the
+// payout that follows can be trusted.
+//
+// Deliberately not written to the audit log: the poller reaches this branch
+// for every pending order every 90 seconds, and a table full of "could not
+// check join requests" would bury the entries worth reading.
 async function admitPendingJoinRequest(dbHelpers, order, groupId, cookie, totpSecret = null) {
-  const joinRequest = await RobloxGroup.getJoinRequest(groupId, order.roblox_id, cookie);
+  let joinRequest;
+  try {
+    joinRequest = await RobloxGroup.getJoinRequest(groupId, order.roblox_id, cookie);
+  } catch (error) {
+    if (error.code !== 'GROUP_PERMISSION_DENIED') throw error;
+    console.warn(
+      `Order ${order.id}: skipping join-request admission — the bot may not read `
+      + `group ${groupId}'s join requests (HTTP ${error.status}). Continuing to eligibility.`
+    );
+    return false;
+  }
   if (!joinRequest) return false;
 
-  await RobloxGroup.acceptJoinRequest(groupId, order.roblox_id, cookie, totpSecret);
+  try {
+    await RobloxGroup.acceptJoinRequest(groupId, order.roblox_id, cookie, totpSecret);
+  } catch (error) {
+    // Reading the request was allowed but accepting it was not. Same
+    // reasoning as above, and the buyer stays queued until somebody admits
+    // them by hand.
+    if (error.code !== 'GROUP_PERMISSION_DENIED' && error.status !== 401 && error.status !== 403) {
+      throw error;
+    }
+    console.warn(
+      `Order ${order.id}: join request found but the bot may not accept it in `
+      + `group ${groupId}. Admit the buyer manually.`
+    );
+    return false;
+  }
+
   await recordAcceptedJoin(dbHelpers, order.user_id, order.roblox_id, groupId);
 
   // The join timestamp is the start of the payout clock, so the moment it's

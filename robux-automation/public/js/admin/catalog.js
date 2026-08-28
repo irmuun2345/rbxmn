@@ -24,7 +24,7 @@ function renderLevels() {
     <div class="editable-row">
       <div>
         <strong>Түвшин ${Number(level.level)}</strong>
-        <small>${formatNumber(level.threshold)} R$-аас дээш · ${Number(level.discountPercent) || 0}% хямдрал</small>
+        <small>${formatNumber(level.threshold)} Robux-аас дээш · ${Number(level.discountPercent) || 0}% хямдрал</small>
       </div>
       <button class="btn btn-danger btn-sm" type="button" data-remove-level="${Number(level.threshold)}">Хасах</button>
     </div>`).join('');
@@ -157,7 +157,7 @@ function renderPackages() {
   $('packages-list').innerHTML = currentPackages.map((pkg) => `
     <div class="editable-row">
       <div>
-        <strong>${formatNumber(pkg.robux_amount)} R$</strong>
+        <strong>${formatNumber(pkg.robux_amount)} Robux</strong>
         <small>${formatMnt(pkg.price_mnt)}${pkg.discount_percent > 0 ? ` · -${Number(pkg.discount_percent)}% хямдралтай` : ''}${pkg.is_active ? '' : ' · Идэвхгүй'}</small>
       </div>
       <div class="action-buttons">

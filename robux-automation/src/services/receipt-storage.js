@@ -23,6 +23,9 @@
 //                                gate entirely.
 //   otherwise                 -> the local uploads/receipts directory, so
 //                                development and tests behave as before.
+//
+// On Vercel there is no "otherwise": without the token the module refuses to
+// store anything rather than writing to a filesystem that cannot hold it.
 
 const fs = require('fs');
 const path = require('path');
@@ -33,6 +36,45 @@ const RECEIPT_DIR = path.join(__dirname, '../../uploads/receipts');
 const BLOB_PREFIX = 'receipts/';
 
 const usingBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
+// Falling back to local disk is right on a developer machine and impossible on
+// Vercel: everything outside /tmp is read-only there, so the very first write
+// answers ENOENT on mkdir(/var/task/uploads) and the buyer sees a 500.
+//
+// That is not hypothetical. BLOB_READ_WRITE_TOKEN was set for Development but
+// never for Production, this module quietly chose the disk backend, and the
+// misconfiguration stayed invisible until someone had already paid and tried
+// to send their receipt.
+//
+// So on Vercel a missing token is a configuration error, not a fallback: it is
+// announced at boot, where the deploy log shows it, and every call fails with a
+// code that names the cause instead of an ENOENT from deep inside fs.
+const onVercel = Boolean(process.env.VERCEL);
+const misconfigured = onVercel && !usingBlob;
+
+if (misconfigured) {
+  console.error(
+    '[receipt-storage] BLOB_READ_WRITE_TOKEN is not set in this environment. '
+    + 'Receipt uploads will be refused - the local disk backend cannot work on '
+    + "Vercel's read-only filesystem. Connect the Blob store to the Production "
+    + 'environment (or: vercel env add BLOB_READ_WRITE_TOKEN production) and redeploy.'
+  );
+}
+
+function storageUnconfigured() {
+  return Object.assign(
+    new Error(
+      'Receipt storage is not configured: BLOB_READ_WRITE_TOKEN is missing on '
+      + 'Vercel, and receipts cannot be written to a serverless filesystem.'
+    ),
+    { code: 'RECEIPT_STORAGE_UNCONFIGURED' }
+  );
+}
+
+const unconfiguredStorage = {
+  async save() { throw storageUnconfigured(); },
+  async openStream() { throw storageUnconfigured(); }
+};
 
 // ---------------------------------------------------------------------------
 // Local disk
@@ -99,7 +141,11 @@ const blobStorage = {
   }
 };
 
-const backend = usingBlob ? blobStorage : localStorage;
+const backend = misconfigured
+  ? unconfiguredStorage
+  : (usingBlob ? blobStorage : localStorage);
+
+const backendName = misconfigured ? 'unconfigured' : (usingBlob ? 'blob' : 'local');
 
 module.exports = {
   /**
@@ -114,5 +160,8 @@ module.exports = {
   openStream: (storedName) => backend.openStream(storedName),
 
   RECEIPT_DIR,
-  usingBlob
+  usingBlob,
+
+  /** 'blob' | 'local' | 'unconfigured' - what a receipt upload would use now. */
+  backendName
 };

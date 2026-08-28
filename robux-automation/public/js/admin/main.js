@@ -9,8 +9,9 @@
 // server-side, and a visitor who skips the redirect still gets 401s.
 
 import { initAccount, loadAdminProfile } from './account.js';
-import { initPricing, loadPricing, loadBankAccount } from './pricing.js';
+import { initBankAccounts, loadBankAccount } from './banking.js';
 import { initOrders, loadOrders, loadAutomationStatus } from './orders.js';
+import { initSales, loadSalesStats, loadSalesList } from './stats.js';
 import { initStalled, loadStalledOrders } from './stalled.js';
 import { initGroup, loadGroupSettings, loadBotStatus, loadMemberships } from './group.js';
 import { initCatalog, loadLevels, loadEvents, loadPackages } from './catalog.js';
@@ -19,8 +20,9 @@ import { initReferrals, loadReferralSettings, loadReferralCodes } from './referr
 import { initAudit, loadAuditLog } from './audit.js';
 
 initAccount();
-initPricing();
+initBankAccounts();
 initOrders();
+initSales();
 initStalled();
 initGroup();
 initCatalog();
@@ -40,8 +42,8 @@ async function boot() {
   }
 
   await Promise.all([
-    loadPricing(), loadBankAccount(),
-    loadOrders(), loadAutomationStatus(), loadStalledOrders(),
+    loadBankAccount(),
+    loadOrders(), loadSalesStats().then(loadSalesList), loadAutomationStatus(), loadStalledOrders(),
     loadGroupSettings(), loadBotStatus(), loadMemberships(),
     loadLevels(), loadEvents(), loadPackages(),
     loadPhoneLinks(), loadGiftCards(),

@@ -36,7 +36,7 @@ export async function loadStalledOrders() {
     $('stalled-list').innerHTML = data.orders.map((order) => `
       <div class="editable-row">
         <div>
-          <strong>#${Number(order.id)} · ${escapeHtml(order.username)} · ${formatNumber(order.amountRobux)} R$</strong>
+          <strong>#${Number(order.id)} · ${escapeHtml(order.username)} · ${formatNumber(order.amountRobux)} Robux</strong>
           <small>Roblox ID ${Number(order.robloxId)} · эхэлсэн: ${formatStoredDateTime(order.startedAt)}</small>
           ${order.paymentReference ? `<span class="ref-code">${escapeHtml(order.paymentReference)}</span>` : ''}
           ${order.error ? `<small class="reject-reason">${escapeHtml(order.error)}</small>` : ''}

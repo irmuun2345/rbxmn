@@ -5,7 +5,7 @@
 
 const { publicData } = require('./guards');
 
-module.exports = function registerStorefrontRoutes(app, { adminController }) {
+module.exports = function registerStorefrontRoutes(app, { adminController, referralController }) {
   // Handled by adminController because these read the same settings rows the
   // dashboard writes; the read side just has no auth requirement.
   app.get('/pricing', publicData, adminController.getPricing.bind(adminController));
@@ -22,6 +22,12 @@ module.exports = function registerStorefrontRoutes(app, { adminController }) {
 
   // Running and upcoming events plus today's discounted packages.
   app.get('/events', publicData, adminController.getPublicEvents.bind(adminController));
+
+  // The referral bonus and commission percentages, with no session behind
+  // the request: the landing page quotes them to visitors who have not
+  // signed in yet. Percentages only — everything per-user stays on the
+  // authenticated /referral/me.
+  app.get('/referral/info', publicData, referralController.getPublicInfo.bind(referralController));
 
   // Fixed Robux packages — the only amounts customers can buy or gift.
   app.get('/packages', publicData, adminController.getPublicPackages.bind(adminController));

@@ -1,26 +1,14 @@
-// What the storefront quotes: the Robux rate, and the bank accounts customers
-// transfer into.
+// The bank accounts customers transfer into.
+//
+// The 100-Robux rate used to be edited here too. It is not a shop price any
+// more — buyers pick a fixed pack and pay that pack's own price — and the
+// editor for it was removed, so the only thing left on this screen is where
+// the money is sent. GET /pricing still serves the stored rate: the gift card
+// quote is computed from it, on both sides.
 
 import { $, escapeHtml, showResult, setLoading } from '../common/dom.js';
 import { request, jsonBody } from '../common/api.js';
-import { formatMnt } from '../common/format.js';
 import { confirmDialog } from './dialog.js';
-
-function updatePricePreview(value) {
-  const formatted = formatMnt(Number(value) || 0);
-  $('price-preview').textContent = formatted;
-  $('rate-stat').textContent = formatted;
-}
-
-export async function loadPricing() {
-  try {
-    const data = await request('/pricing', undefined, 'Үнийн мэдээлэл авч чадсангүй.');
-    $('price-per-100').value = data.pricePer100;
-    updatePricePreview(data.pricePer100);
-  } catch (error) {
-    showResult($('price-result'), error.message, true);
-  }
-}
 
 // Several accounts, so a buyer can transfer inside their own bank. The list
 // order is what buyers see, hence the up/down controls.
@@ -101,7 +89,7 @@ async function moveBankAccount(id, direction) {
   }
 }
 
-function initBankAccounts() {
+export function initBankAccounts() {
   $('add-bank-btn').addEventListener('click', async () => {
     const button = $('add-bank-btn');
     setLoading(button, true, 'Нэмж байна…');
@@ -153,30 +141,4 @@ function initBankAccounts() {
       showResult($('bank-result'), error.message, true);
     }
   });
-}
-
-export function initPricing() {
-  $('price-per-100').addEventListener('input', (event) => updatePricePreview(event.target.value));
-
-  $('price-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const button = event.submitter;
-    setLoading(button, true, 'Хадгалж байна…');
-    try {
-      const data = await request(
-        '/admin/pricing',
-        jsonBody('PUT', { pricePer100: Number($('price-per-100').value) }),
-        'Үнэ бүхэл төгрөгөөр 100₮-өөс дээш байна.'
-      );
-      $('price-per-100').value = data.pricePer100;
-      updatePricePreview(data.pricePer100);
-      showResult($('price-result'), 'Үнэ хадгалагдлаа. Дэлгүүр шинэчлэгдсэн.');
-    } catch (error) {
-      showResult($('price-result'), error.message, true);
-    } finally {
-      setLoading(button, false);
-    }
-  });
-
-  initBankAccounts();
 }

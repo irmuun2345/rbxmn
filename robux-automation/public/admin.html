@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0c0c0d">
+  <meta name="theme-color" content="#0b0d0b">
   <meta name="robots" content="noindex, nofollow">
-  <title>RBX Админ</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>rbxmn Админ</title>
+  <link rel="icon" href="/img/favicon.png?v=2" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="/img/logo-mark.png?v=2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700;800;900&family=Source+Sans+3:wght@400..900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <!-- Same cascade order as the storefront, minus the files this page has no
        markup for. See the note in index.html. -->
   <link rel="stylesheet" href="/css/tokens.css">
@@ -28,7 +29,8 @@
 
   <header class="topbar">
     <div class="page topbar-inner">
-      <a class="brand" href="/admin.html">RBX<span class="brand-tag">Админ</span></a>
+      <a class="brand" href="/admin.html">
+        <img class="brand-mark" src="/img/logo-mark.png" alt="" width="40" height="40" aria-hidden="true"><span class="brand-word"><span class="brand-rbx">rbx</span><span class="brand-mn">mn</span></span><span class="brand-tag">Админ</span></a>
       <div class="nav">
         <span class="nav-link" id="admin-username">Админ</span>
         <button class="btn btn-ghost btn-sm" id="logout-btn" type="button">Гарах</button>
@@ -58,9 +60,81 @@
         <strong id="purchased-orders">—</strong>
       </div>
       <div class="stat">
-        <span>100 Robux</span>
-        <strong class="tabular" id="rate-stat">—</strong>
+        <span>Өнөөдөр хүргэсэн</span>
+        <strong class="tabular" id="today-robux-stat">—</strong>
       </div>
+    </section>
+
+    <!-- Sales, as opposed to the strip above: that counts what still needs
+         working, this counts what has already been delivered and paid for.
+         Only completed orders are in here, so the numbers never fall when a
+         payment is rejected.
+
+         One view, not two. This began as a fixed table of periods with a
+         search below it, which meant the same figures were on screen twice
+         and an admin had to know which of the two to believe. The periods
+         are presets now: they set the range, the summary line states the
+         totals for whatever is set, and there is one list under it. -->
+    <section class="panel sales-section">
+      <div class="panel-head">
+        <div>
+          <h2 class="h3">Борлуулалт</h2>
+          <p>Зөвхөн дууссан захиалга. Хугацаагаа сонгох буюу өөрөө заана. Өдрийн заагийг Улаанбаатарын цагаар тооцно.</p>
+        </div>
+      </div>
+      <!-- The presets write into the two date boxes rather than being a mode
+           of their own, so a range can be nudged after picking one and the
+           boxes always say exactly what is being shown. -->
+      <form class="sales-filter" id="sales-filter">
+        <div class="chip-row" id="sales-presets" role="radiogroup" aria-label="Хугацаа"></div>
+
+        <div class="sales-filter-fields">
+          <div class="field">
+            <label for="sales-from">Эхлэх</label>
+            <input id="sales-from" type="date">
+          </div>
+          <div class="field">
+            <label for="sales-to">Дуусах</label>
+            <input id="sales-to" type="date">
+          </div>
+          <div class="field sales-search-field">
+            <label for="sales-search">Хайх</label>
+            <input id="sales-search" type="search" autocomplete="off"
+                   placeholder="Хэрэглэгч, Roblox ID, лавлах код">
+          </div>
+          <div class="sales-filter-actions">
+            <button class="btn" type="submit">Шүүх</button>
+            <button class="btn btn-ghost" type="button" id="sales-reset">Цэвэрлэх</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="list-toolbar">
+        <span class="list-summary" id="sales-summary"></span>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Огноо</th>
+              <th>Хэрэглэгч</th>
+              <th>Лавлах</th>
+              <th>Robux</th>
+              <th>Дүн</th>
+            </tr>
+          </thead>
+          <tbody id="sales-results">
+            <tr><td class="empty-cell" colspan="5">Шүүлтүүрээ сонгоно уу.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="list-more">
+        <button class="btn btn-ghost btn-sm" type="button" id="sales-more" hidden>Илүү ихийг харах</button>
+      </div>
+
+      <p id="sales-result" class="notice" role="status" aria-live="polite" hidden></p>
     </section>
 
     <!-- Only rendered when something is actually stuck. These orders had a
@@ -84,6 +158,23 @@
         </div>
       </div>
       <p id="automation-status" class="hint">Roblox automation тохиргоог шалгаж байна…</p>
+
+      <!-- The queue is worked from the top, but it also holds every order
+           that has already been dealt with — so it needs a way to ask about
+           one of them. Filtering happens in the browser over the rows that
+           are already here: the queue is one request, and a round trip per
+           keystroke would be slower than the list it is searching. -->
+      <div class="list-toolbar">
+        <div class="chip-row" id="order-filters" role="radiogroup" aria-label="Захиалгын шүүлтүүр"></div>
+        <div class="toolbar-search">
+          <label class="sr-only" for="order-search">Захиалга хайх</label>
+          <input id="order-search" type="search" autocomplete="off"
+                 placeholder="Хэрэглэгч, Roblox ID, лавлах код">
+        </div>
+      </div>
+
+      <p class="list-summary" id="orders-summary"></p>
+
       <div class="table-container">
         <table>
           <thead>
@@ -113,29 +204,6 @@
         <h2 class="h2">Тохиргоо</h2>
       </div>
     </header>
-
-    <div class="panel price-editor-grid">
-      <div class="price-preview">
-        <h2 class="h3">Дэлгүүрт харагдах үнэ</h2>
-        <strong class="rate-value tabular" id="price-preview">4,500 ₮</strong>
-      </div>
-
-      <div>
-        <h2 class="h3">100 Robux-ын үнэ</h2>
-        <form id="price-form">
-          <div class="field">
-            <label for="price-per-100">Шинэ үнэ</label>
-            <div class="price-input">
-              <input id="price-per-100" type="number" min="100" max="10000000" step="100" inputmode="numeric" required>
-              <span aria-hidden="true">₮</span>
-            </div>
-            <p class="hint">100₮ – 10,000,000₮</p>
-          </div>
-          <button class="btn full" type="submit">Үнийг хадгалах</button>
-        </form>
-        <p id="price-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </div>
 
     <details class="stub-toggle">
       <summary>Админы нууц үг солих</summary>
@@ -234,7 +302,7 @@
         <div class="editable-list" id="levels-list"></div>
         <div class="inline-form">
           <div class="field">
-            <label for="new-level-threshold">Босго (нийт R$)</label>
+            <label for="new-level-threshold">Босго (нийт Robux)</label>
             <input id="new-level-threshold" type="number" min="1" step="1" placeholder="Жишээ: 12000">
           </div>
           <div class="field">
@@ -340,13 +408,13 @@
         <div class="field-row">
           <div class="field">
             <label for="referral-bonus-percent">Урамшуулал (%)</label>
-            <input type="number" id="referral-bonus-percent" min="0" max="50" step="0.5">
-            <p class="hint">Кодыг ашигласан хэрэглэгчид.</p>
+            <input type="number" id="referral-bonus-percent" min="0" max="5" step="0.5">
+            <p class="hint">Кодыг ашигласан хэрэглэгчид. 1-5%, 0 = унтраах.</p>
           </div>
           <div class="field">
             <label for="referral-commission-percent">Шимтгэл (%)</label>
-            <input type="number" id="referral-commission-percent" min="0" max="50" step="0.5">
-            <p class="hint">Кодын эзэнд.</p>
+            <input type="number" id="referral-commission-percent" min="0" max="5" step="0.5">
+            <p class="hint">Кодын эзэнд. 1-5%, 0 = унтраах.</p>
           </div>
         </div>
 
@@ -359,7 +427,7 @@
             </select>
           </div>
           <div class="field">
-            <label for="referral-max-bonus">Урамшууллын дээд хязгаар (R$)</label>
+            <label for="referral-max-bonus">Урамшууллын дээд хязгаар (Robux)</label>
             <input type="number" id="referral-max-bonus" min="0" step="1">
             <p class="hint">0 = хязгааргүй.</p>
           </div>
@@ -367,7 +435,7 @@
 
         <div class="field-row">
           <div class="field">
-            <label for="referral-min-payout">Төлөлтийн доод хэмжээ (R$)</label>
+            <label for="referral-min-payout">Төлөлтийн доод хэмжээ (Robux)</label>
             <input type="number" id="referral-min-payout" min="0" step="1">
           </div>
           <div class="field">
@@ -380,8 +448,50 @@
         <button class="btn" id="save-referral-settings" type="button">Тохиргоо хадгалах</button>
         <p id="referral-settings-result" class="notice" role="status" aria-live="polite" hidden></p>
 
+        <h3 class="h3 field-spaced">Шинэ код олгох</h3>
+        <p class="hint">Кодыг зөвхөн админ олгоно. Нэг хэрэглэгч нэг код эзэмшинэ.</p>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="referral-new-owner">Эзэмшигч (хэрэглэгчийн нэр)</label>
+            <input type="text" id="referral-new-owner" placeholder="Roblox хэрэглэгчийн нэр" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="referral-new-code">Код</label>
+            <input type="text" id="referral-new-code" placeholder="Жишээ: SUNEE" maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false">
+            <p class="hint">3-8 тэмдэгт, зөвхөн үсэг ба тоо.</p>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="referral-new-max-uses">Хэдэн хүн ашиглах вэ</label>
+            <input type="number" id="referral-new-max-uses" min="0" step="1" value="0">
+            <p class="hint">0 = хязгааргүй. Хязгаарт хүрмэгц код хаагдана.</p>
+          </div>
+          <div class="field">
+            <label for="referral-new-bonus">Урамшуулал (%)</label>
+            <input type="number" id="referral-new-bonus" min="0" max="5" step="0.5" placeholder="Ерөнхий">
+            <p class="hint">Хоосон = ерөнхий тохиргоо.</p>
+          </div>
+          <div class="field">
+            <label for="referral-new-commission">Шимтгэл (%)</label>
+            <input type="number" id="referral-new-commission" min="0" max="5" step="0.5" placeholder="Ерөнхий">
+            <p class="hint">Хоосон = ерөнхий тохиргоо.</p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="checkbox-row">
+            <input type="checkbox" id="referral-new-influencer"> Бүтээгчийн түншлэл
+          </label>
+        </div>
+
+        <button class="btn" id="issue-referral-code" type="button">Код олгох</button>
+        <p id="referral-issue-result" class="notice" role="status" aria-live="polite" hidden></p>
+
         <h3 class="h3 field-spaced">Кодууд</h3>
-        <p class="hint">Хувийг хоосон орхивол дээрх ерөнхий тохиргоог дагана.</p>
+        <p class="hint">Хувийг хоосон орхивол дээрх ерөнхий тохиргоог дагана. Ашиглах тоог 0 болговол хязгааргүй.</p>
         <div class="editable-list" id="referral-codes-list"></div>
         <p id="referral-codes-result" class="notice" role="status" aria-live="polite" hidden></p>
       </div>

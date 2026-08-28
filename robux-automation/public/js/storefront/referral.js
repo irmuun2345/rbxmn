@@ -1,7 +1,9 @@
 // The referral programme: claiming a code, applying someone else's, and the
 // earnings summary.
 
-import { $, showResult, setLoading } from '../common/dom.js';
+import {
+  $, showResult, setLoading, renderLoading, renderEmpty, renderError
+} from '../common/dom.js';
 import { request, jsonBody } from '../common/api.js';
 import { formatNumber } from '../common/format.js';
 import { currentTab, selectTab } from './tabs.js';
@@ -26,31 +28,66 @@ function renderReferral(data) {
   $('tab-referral').hidden = !data.enabled;
   if (!data.enabled && currentTab() === 'referral') selectTab('buy');
 
+  // Codes are issued by an admin, never claimed here — so this form stays
+  // hidden whether or not the user already owns a code.
+  $('referral-create-form').hidden = true;
+
   if (data.myCode) {
-    $('referral-create-form').hidden = true;
     $('referral-code-display').hidden = false;
     $('referral-my-code').textContent = data.myCode.code;
     $('referral-bonus-display').textContent = `+${data.myCode.bonusPercent}% Robux`;
     $('referral-commission-display').textContent = `${data.myCode.commissionPercent}% Robux`;
 
+    // remainingUses is null for an uncapped code — 0 remaining and no limit
+    // at all are opposite states, so they must not both read as "0".
+    const { maxUses, usedCount, remainingUses } = data.myCode;
+    $('referral-uses-display').textContent = remainingUses === null
+      ? 'Хязгааргүй'
+      : (remainingUses === 0
+        ? `Дууссан (${formatNumber(maxUses)}/${formatNumber(maxUses)})`
+        : `${formatNumber(usedCount)}/${formatNumber(maxUses)} · ${formatNumber(remainingUses)} үлдсэн`);
+
+    // Five figures in a column of label/value rows read as a form, not as
+    // earnings. The balance is the one anyone opens this tab for, so it gets
+    // a tile of its own and the other four share the grid below it.
     const stats = data.myCode.stats;
     $('referral-stats').innerHTML = `
-      <div class="line-item"><span>Урьсан хүн</span><strong>${formatNumber(stats.referredUsers)}</strong></div>
-      <div class="line-item"><span>Дууссан захиалга</span><strong>${formatNumber(stats.completedOrders)}</strong></div>
-      <div class="line-item"><span>Хүлээгдэж буй</span><strong>${formatNumber(stats.pendingOrders)}</strong></div>
-      <div class="line-item"><span>Олсон Robux</span><strong>${formatNumber(stats.earnedRobux)} R$</strong></div>
-      <div class="line-item"><span>Аваагүй үлдэгдэл</span><strong>${formatNumber(stats.balanceRobux)} R$</strong></div>
+      <div class="stat-hero">
+        <span class="stat-hero-label">Аваагүй үлдэгдэл</span>
+        <strong class="stat-hero-value tabular">${formatNumber(stats.balanceRobux)} Robux</strong>
+        ${stats.balanceRobux < data.minPayoutRobux
+          ? `<span class="stat-hero-note">${formatNumber(data.minPayoutRobux)} Robux цугларахад төлөгдөнө</span>`
+          : '<span class="stat-hero-note">Төлөгдөх боломжтой</span>'}
+      </div>
+      <div class="stat-grid">
+        <div class="stat-tile">
+          <span class="stat-tile-value tabular">${formatNumber(stats.referredUsers)}</span>
+          <span class="stat-tile-label">Урьсан хүн</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value tabular">${formatNumber(stats.completedOrders)}</span>
+          <span class="stat-tile-label">Дууссан захиалга</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value tabular">${formatNumber(stats.pendingOrders)}</span>
+          <span class="stat-tile-label">Хүлээгдэж буй</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile-value tabular">${formatNumber(stats.earnedRobux)}</span>
+          <span class="stat-tile-label">Нийт олсон Robux</span>
+        </div>
+      </div>
       ${stats.pendingRobux
-        ? `<p class="hint">${formatNumber(stats.pendingRobux)} R$ нь хүргэгдээгүй захиалгад хамаарна. Захиалга дуусмагц тооцогдоно.</p>`
-        : ''}
-      ${stats.balanceRobux < data.minPayoutRobux
-        ? `<p class="hint">Хамгийн багадаа ${formatNumber(data.minPayoutRobux)} R$ цугларахад төлөгдөнө.</p>`
+        ? `<p class="hint">${formatNumber(stats.pendingRobux)} Robux нь хүргэгдээгүй захиалгад хамаарна. Захиалга дуусмагц тооцогдоно.</p>`
         : ''}`;
   } else {
-    $('referral-create-form').hidden = false;
     $('referral-code-display').hidden = true;
-    $('referral-stats').innerHTML = '<p class="hint">Кодоо үүсгээд найз нартаа хуваалцвал дууссан '
-      + `захиалга бүрээс ${Number(data.commissionPercent)}% Robux авна.</p>`;
+    renderEmpty($('referral-stats'), {
+      icon: '◇',
+      title: 'Танд урилгын код алга',
+      body: `Урилгын кодыг админ олгодог. Код авбал найзуудынхаа дууссан захиалга бүрээс ${Number(data.commissionPercent)}% Robux авна. Код авахыг хүсвэл тусламжаар холбогдоно уу.`,
+      inline: true
+    });
   }
 
   // Already bound to someone — the apply form has nothing left to do.
@@ -65,10 +102,18 @@ function renderReferral(data) {
 }
 
 export async function loadReferral() {
+  renderLoading($('referral-stats'), { rows: 2 });
   try {
     renderReferral(await request('/referral/me'));
   } catch {
-    /* leave the tab as-is; the gate copy already explains itself */
+    // The code panel beside this one still explains the programme, so the
+    // failure is reported where the figures would have been rather than
+    // taking over the whole tab.
+    renderError($('referral-stats'), {
+      title: 'Орлогын мэдээлэл ачаалагдсангүй',
+      retry: loadReferral,
+      inline: true
+    });
   }
 }
 

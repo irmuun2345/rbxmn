@@ -95,7 +95,7 @@ async function createInvoice({ reference, amountMnt, description, callbackUrl })
       invoice_code: invoiceCode,
       sender_invoice_no: reference,
       invoice_receiver_code: reference,
-      invoice_description: description || `RBX ${reference}`,
+      invoice_description: description || `rbxmn ${reference}`,
       amount: Math.round(Number(amountMnt)),
       callback_url: `${callbackUrl}?reference=${encodeURIComponent(reference)}`
     },

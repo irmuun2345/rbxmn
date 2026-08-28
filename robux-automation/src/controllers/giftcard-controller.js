@@ -1,5 +1,5 @@
 const { ensurePhoneLinked } = require('./phone-controller');
-const { priceForPackage } = require('../services/pricing');
+const { getUserLevelDiscountPercent } = require('../services/pricing');
 const { attemptGroupDelivery } = require('../services/group-delivery');
 const { ORDER_STATUS } = require('../services/order-status');
 const orders = require('../services/orders');
@@ -9,6 +9,14 @@ const { ACTIONS, recordUserAction } = require('../services/audit');
 function randomCode(prefix, length) {
   return `${prefix}-${randomSuffix(length)}`;
 }
+
+// A gift card is no longer bought off the fixed package shelf — the buyer
+// types the amount they want to give. These bounds are the whole of the
+// rule: low enough that a mistyped digit cannot mint a card nobody would
+// transfer for, high enough to be worth sending.
+const MIN_GIFT_ROBUX = 100;
+const MAX_GIFT_ROBUX = 1000;
+const DEFAULT_PRICE_PER_100 = 4500;
 
 class GiftCardController {
   constructor(dbHelpers) {
@@ -21,28 +29,40 @@ class GiftCardController {
     });
   }
 
-  // Buy a gift card: same fixed packages and pricing engine as a normal
-  // order (package discount + the buyer's own level discount both apply),
-  // paid the same way (bank transfer), just held as an unredeemed code
+  // Buy a gift card for any amount between MIN_GIFT_ROBUX and MAX_GIFT_ROBUX,
+  // priced off the live rate rather than a package row: what a present is
+  // worth is the giver's decision, not a shelf they pick from. The buyer's
+  // own level discount still applies, exactly as on a normal order.
+  //
+  // Paid the same way (bank transfer), just held as an unredeemed code
   // instead of delivered straight away. Admin approves the payment exactly
   // like a normal order; only then does the code become redeemable.
   async create(req, res) {
-    const packageId = Number(req.body.packageId);
-    if (!Number.isInteger(packageId)) {
-      return res.status(400).json({ success: false, error: 'Бэлгийн картын багцаа сонгоно уу.' });
+    // The amount is the only thing taken from the client, and the price is
+    // never taken from it at all — what the storefront showed was a preview,
+    // recomputed below from settings the buyer cannot reach.
+    const robuxAmount = Number(req.body.robuxAmount);
+    if (!Number.isInteger(robuxAmount) || robuxAmount < MIN_GIFT_ROBUX || robuxAmount > MAX_GIFT_ROBUX) {
+      return res.status(400).json({
+        success: false,
+        error: `Бэлгийн картын дүн ${MIN_GIFT_ROBUX}-аас ${MAX_GIFT_ROBUX} Robux хооронд бүхэл тоо байх ёстой.`
+      });
     }
 
     try {
       await ensurePhoneLinked(this.dbHelpers, req.session.userId);
 
-      const pkg = await new Promise((resolve, reject) => {
-        this.dbHelpers.getPackageById(packageId, (error, row) => (error ? reject(error) : resolve(row)));
-      });
-      if (!pkg || !pkg.is_active) {
-        return res.status(400).json({ success: false, error: 'Сонгосон Robux багц олдсонгүй.' });
-      }
+      const [rate, levelDiscountPercent] = await Promise.all([
+        this.getSettingValue('price_per_100_robux_mnt'),
+        getUserLevelDiscountPercent(this.dbHelpers, req.session.userId)
+      ]);
+      const pricePer100 = Number(rate) || DEFAULT_PRICE_PER_100;
 
-      const { amountMnt, deliveredRobux } = await priceForPackage(this.dbHelpers, req.session.userId, pkg, 0);
+      // No event or referral bonus: a gift card was never eligible for one
+      // (priceForPackage was called with both at zero), and the amount the
+      // giver paid for is the amount the recipient gets.
+      const deliveredRobux = robuxAmount;
+      const amountMnt = Math.round((robuxAmount / 100) * pricePer100 * (1 - levelDiscountPercent / 100));
       const code = randomCode('GIFT', 8);
       const paymentReference = await generateUniqueReference(this.dbHelpers);
 
@@ -63,6 +83,7 @@ class GiftCardController {
         giftCardId: giftCard.id,
         robuxAmount: deliveredRobux,
         amountMnt,
+        levelDiscountPercent,
         paymentReference,
         banks: banks.map((row) => ({
           id: row.id,
@@ -137,7 +158,10 @@ class GiftCardController {
 
       const groupId = await this.getSettingValue('group_id');
       if (!groupId) {
-        return res.status(503).json({ success: false, error: 'Групп одоогоор тохируулагдаагүй байна.' });
+        return res.status(503).json({
+          success: false,
+          error: 'Үйлчилгээ түр хугацаанд боломжгүй байна. Дэмжлэгтэй холбогдоно уу.'
+        });
       }
 
       // Roblox's group-join approval only satisfies one pending delivery at
@@ -241,7 +265,7 @@ class GiftCardController {
         success: true,
         message: delivered
           ? 'Бэлгийн карт ашиглагдлаа. Robux шууд илгээгдлээ.'
-          : 'Бэлгийн карт ашиглагдлаа. Группд нэгдэх хүсэлт илгээхэд Robux шилжинэ.',
+          : 'Бэлгийн карт ашиглагдлаа. Аккаунт бэлэн болмогц Robux шилжинэ.',
         deliveredRobux: giftCard.robux_amount,
         groupId,
         groupUrl: `https://www.roblox.com/groups/${groupId}`,

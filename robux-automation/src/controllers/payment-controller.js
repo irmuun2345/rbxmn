@@ -49,7 +49,7 @@ class PaymentController {
       const invoice = await qpay.createInvoice({
         reference: order.payment_reference,
         amountMnt: order.amount_mnt,
-        description: `RBX ${order.delivered_robux || order.price} R$`,
+        description: `rbxmn ${order.delivered_robux || order.price} Robux`,
         callbackUrl
       });
 

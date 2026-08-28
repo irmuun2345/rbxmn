@@ -2,6 +2,7 @@ const assert = require('assert');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
 const RobloxAuth = require('../src/services/roblox-auth');
+const RobloxGroup = require('../src/services/roblox-group');
 const AuthController = require('../src/controllers/auth-controller');
 const GamePassController = require('../src/controllers/gamepass-controller');
 const AdminController = require('../src/controllers/admin-controller');
@@ -193,6 +194,54 @@ async function testVerifiedCallbackFlow() {
 }
 
 async function testRealGamePassOrder() {
+  // The route is closed by default — Roblox disabled the cross-game sale it
+  // depends on (see services/gamepass-route.js). Everything below tests the
+  // machinery that stays behind the switch, so it runs with the switch on and
+  // restores whatever the environment had afterwards.
+  const originalFlag = process.env.GAMEPASS_ROUTE_ENABLED;
+  process.env.GAMEPASS_ROUTE_ENABLED = '1';
+  try {
+    await runGamePassOrderChecks();
+  } finally {
+    if (originalFlag === undefined) delete process.env.GAMEPASS_ROUTE_ENABLED;
+    else process.env.GAMEPASS_ROUTE_ENABLED = originalFlag;
+  }
+}
+
+// With the switch off, an order must be refused outright rather than created
+// and left undeliverable. This is the state production runs in.
+async function testGamePassRouteDisabled() {
+  const originalFlag = process.env.GAMEPASS_ROUTE_ENABLED;
+  delete process.env.GAMEPASS_ROUTE_ENABLED;
+
+  try {
+    const controller = new GamePassController({}, {});
+    const response = createResponse();
+    await controller.createGamePass({
+      body: { packageId: 3 },
+      session: {
+        userId: 7,
+        robloxAccessToken: 'token',
+        robloxAccessTokenExpiresAt: Date.now() + 60_000,
+        authorizedUniverseIds: ['3828411582']
+      }
+    }, response);
+
+    assert.equal(response.statusCode, 403);
+    assert.equal(response.body.reason, 'gamepass_route_disabled');
+    // The refusal has to tell the buyer to come back later, and must not tell
+    // them how delivery works. It used to point them at the group by name;
+    // asserting the absence is what stops that being reintroduced by someone
+    // reaching for the most informative wording.
+    assert.ok(/хэдэн өдрийн дараа/i.test(response.body.error));
+    assert.ok(!/групп/i.test(response.body.error));
+  } finally {
+    if (originalFlag === undefined) delete process.env.GAMEPASS_ROUTE_ENABLED;
+    else process.env.GAMEPASS_ROUTE_ENABLED = originalFlag;
+  }
+}
+
+async function runGamePassOrderChecks() {
   let apiRequest;
   let storedOrder;
   // Orders are placed against a fixed package, and every price input is read
@@ -266,15 +315,14 @@ async function testRealGamePassOrder() {
   assert.equal(response.body.purchaseUrl, 'https://www.roblox.com/game-pass/987654321');
 
   // The pass name and description are delivery plumbing, so the server
-  // writes them and the buyer is never asked. The payment reference has to
-  // appear in the name: it is the only string tying the Roblox pass back to
-  // a bank transfer when an admin reconciles one.
-  assert.ok(
-    apiRequest.name.includes(response.body.paymentReference),
-    `pass name should carry the payment reference, got "${apiRequest.name}"`
-  );
+  // writes them and the buyer is never asked. They are the brand and nothing
+  // else: the amount and the payment reference used to be embedded here as a
+  // second way to tie a pass back to a bank transfer, and that redundancy was
+  // dropped deliberately — the order row holds both ids, and Roblox moderates
+  // this text per item anyway, so it was never a reliable label.
+  assert.equal(apiRequest.name, 'rbxmn');
+  assert.equal(apiRequest.description, 'rbxmn');
   assert.ok(apiRequest.name.length <= 50, 'Roblox caps pass names at 50 characters');
-  assert.ok(apiRequest.description.includes(response.body.paymentReference));
   // Whatever the client sent for these is ignored outright.
   assert.ok(!apiRequest.name.includes('800 Robux захиалга'));
 
@@ -375,6 +423,11 @@ async function testAdminPaymentGate() {
   let status = ORDER_STATUS.PAYMENT_SUBMITTED;
   let sellerOwnsPass = false;
   let savedPasswordHash;
+  // Fulfilment buys the pass itself now, so the fixture carries a bot to buy
+  // with — starting absent, because "no bot configured" is a state the queue
+  // has to survive without stranding the order.
+  let sellerBot = null;
+  const purchaseCalls = [];
   const referralCreditCalls = [];
   const dbHelpers = {
     getAdminCount(callback) {
@@ -394,8 +447,22 @@ async function testAdminPaymentGate() {
         id,
         status,
         delivery_method: 'gamepass',
-        roblox_gamepass_id: '987654321'
+        roblox_gamepass_id: '987654321',
+        listed_price: 143
       } : null);
+    },
+    getOrderWithUser(id, callback) {
+      callback(null, id === 41 ? {
+        id,
+        status,
+        delivery_method: 'gamepass',
+        roblox_gamepass_id: '987654321',
+        listed_price: 143,
+        roblox_id: '555000111'
+      } : null);
+    },
+    getActiveSellerBot(callback) {
+      callback(null, sellerBot);
     },
     appendAuditLog(entry, callback) {
       callback(null, { id: 1 });
@@ -428,6 +495,15 @@ async function testAdminPaymentGate() {
       async verifySellerOwnsGamePass(gamePassId) {
         assert.equal(gamePassId, '987654321');
         return { owned: sellerOwnsPass, sellerUserId: '123456789' };
+      },
+      async getGamePassProductInfo(gamePassId) {
+        assert.equal(gamePassId, '987654321');
+        return {
+          productId: 24680,
+          priceInRobux: 143,
+          sellerId: 555000111,
+          isForSale: true
+        };
       }
     }
   );
@@ -459,19 +535,25 @@ async function testAdminPaymentGate() {
   assert.equal(payment.statusCode, 200);
   assert.equal(status, ORDER_STATUS.FULFILLMENT_PENDING);
 
-  // Verification failing must release the delivery claim, not strand the
-  // order in FULFILLMENT_PROCESSING — nothing was purchased, so it stays
-  // retryable.
+  // The seller not owning the pass means fulfilment tries to buy it, and
+  // with no bot configured that attempt cannot even start. The order must
+  // come back to FULFILLMENT_PENDING rather than sitting in
+  // FULFILLMENT_PROCESSING: no Robux left the account, so it stays retryable.
   const missingOwnership = createResponse();
   await controller.markOrderPurchased({ params: { id: '41' }, ...adminSession }, missingOwnership);
   assert.equal(missingOwnership.statusCode, 409);
   assert.equal(status, ORDER_STATUS.FULFILLMENT_PENDING);
+  assert.equal(purchaseCalls.length, 0);
 
+  // A pass the seller already holds is completed without spending anything.
+  // An admin who bought it by hand must not be charged for it twice.
   sellerOwnsPass = true;
   const purchase = createResponse();
   await controller.markOrderPurchased({ params: { id: '41' }, ...adminSession }, purchase);
   assert.equal(purchase.statusCode, 200);
   assert.equal(status, ORDER_STATUS.COMPLETED);
+  assert.equal(purchase.body.purchasedNow, false);
+  assert.equal(purchaseCalls.length, 0);
 
   // A completed order can never be re-fulfilled: the claim transition only
   // accepts FULFILLMENT_PENDING, so there is no path back into delivery.
@@ -479,6 +561,43 @@ async function testAdminPaymentGate() {
   await controller.markOrderPurchased({ params: { id: '41' }, ...adminSession }, replay);
   assert.equal(replay.statusCode, 409);
   assert.equal(status, ORDER_STATUS.COMPLETED);
+
+  // Now the path that made this route work at all: an order whose pass nobody
+  // owns, and a bot to buy it with. Rewinding the fixture is enough to model
+  // it — this is the same order arriving at fulfilment again, which is what a
+  // retry after a fixed configuration actually is.
+  status = ORDER_STATUS.FULFILLMENT_PENDING;
+  sellerOwnsPass = false;
+  sellerBot = { cookie: 'bot-cookie', totp_secret: 'bot-seed' };
+  // The fixture is being replayed through a delivery it has already made
+  // once, so the referral recorder starts fresh: the assertion at the end is
+  // about how many credits one completion produces, not how many completions
+  // this test happens to stage.
+  referralCreditCalls.length = 0;
+  // Buying is what makes the seller the owner, so the stub moves that state
+  // exactly as Roblox would.
+  RobloxGroup.buyGamePass = async (args) => {
+    purchaseCalls.push(args);
+    sellerOwnsPass = true;
+    return { purchased: true, price: args.expectedPrice };
+  };
+
+  const botPurchase = createResponse();
+  await controller.markOrderPurchased({ params: { id: '41' }, ...adminSession }, botPurchase);
+  assert.equal(botPurchase.statusCode, 200);
+  assert.equal(status, ORDER_STATUS.COMPLETED);
+  assert.equal(botPurchase.body.purchasedNow, true);
+  assert.equal(purchaseCalls.length, 1);
+  // The charge is aimed by the order, not by whatever the listing claims:
+  // price and seller both travel with it so Roblox refuses a listing that
+  // moved after the order was priced.
+  assert.deepEqual(purchaseCalls[0], {
+    productId: 24680,
+    expectedPrice: 143,
+    expectedSellerId: 555000111,
+    cookie: 'bot-cookie',
+    totpSecret: 'bot-seed'
+  });
 
   // Referral commission is credited from the COMPLETED transition, so it
   // fires exactly once — on the delivery, not on the approval, and not again
@@ -490,6 +609,7 @@ async function testAdminPaymentGate() {
   await testAuthorizationUrl();
   await testVerifiedCallbackFlow();
   await testRealGamePassOrder();
+  await testGamePassRouteDisabled();
   await testSellerOwnershipVerification();
   await testAdminPaymentGate();
   console.log('OAuth, MNT payment gate, and Roblox ownership verification tests passed');

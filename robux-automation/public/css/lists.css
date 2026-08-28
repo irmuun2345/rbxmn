@@ -1,5 +1,5 @@
 /* ============================================================
-   Row-list primitives.
+   Row-list primitives, the list toolbar, and the order-history row.
 
    Used by both pages, which is why they live here rather than in admin.css:
    the storefront renders gift cards and event deals with the same markup the
@@ -14,24 +14,30 @@
 
 .editable-row {
   display: flex;
-  padding: 0.7rem 0.9rem;
+  padding: 0.8rem 1rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border: 1px solid var(--border);
+  border: var(--stroke) solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.012);
+  background: var(--surface);
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.editable-row:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
 }
 
 .editable-row strong {
   font-family: var(--mono);
-  color: var(--gold);
+  color: var(--text);
 }
 
 .editable-row small {
   display: block;
   color: var(--faint);
-  font-size: 0.72rem;
+  font-size: 0.73rem;
 }
 
 /* The payment reference a customer quotes on their bank transfer, and the
@@ -40,11 +46,297 @@
 .ref-code {
   display: inline-block;
   margin-top: 0.3rem;
-  padding: 0.1rem 0.4rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--gold);
+  padding: 0.12rem 0.45rem;
+  border: var(--stroke) solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  color: var(--venom-text);
+  background: var(--venom-soft);
   font-family: var(--mono);
   font-size: 0.72rem;
   font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   List toolbar
+
+   Sits above any list that can grow past a screenful: the filter chips on
+   the left, a count on the right. Kept as its own block so orders, gift
+   cards and the admin tables can all wear it.
+   ============================================================ */
+
+.list-toolbar {
+  display: flex;
+  margin-bottom: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+}
+
+.list-toolbar .chip-row {
+  margin-bottom: 0;
+}
+
+.list-summary {
+  color: var(--faint);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.list-summary strong {
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+/* "Show more" under a truncated list. A list that silently stops at ten
+   rows is a list that has lied about how much there is. */
+.list-more {
+  display: grid;
+  margin-top: 0.85rem;
+}
+
+/* ============================================================
+   Data row — one order, one gift card, one anything
+
+   Three zones: a status rail down the left that is readable at a glance and
+   at arm's length, the identifying detail, and the money plus state on the
+   right. The rail colour and the badge always agree, and neither is the only
+   carrier of the status — the badge spells it out in words.
+   ============================================================ */
+
+.data-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.data-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  overflow: hidden;
+  border: var(--stroke) solid var(--border);
+  border-left: 5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1.05rem;
+  background: var(--surface);
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.data-row:hover {
+  background: var(--surface-hover);
+}
+
+/* Status rails, matching the badges: brass is waiting, coral is broken, and
+   the two green stages are told apart by brightness the way the badges tell
+   them apart by fill — the deep green is still working, the neon one is
+   done. A rail cannot be an outline, so value is what carries it here. */
+.data-row[data-tone="pending"] { border-left-color: var(--warn); }
+.data-row[data-tone="active"]  { border-left-color: var(--venom-deep); }
+.data-row[data-tone="ok"]      { border-left-color: var(--ok); }
+.data-row[data-tone="danger"]  { border-left-color: var(--danger); }
+
+/* A row the buyer still has to do something about — send a receipt, send a
+   corrected one — is the whole reason to open this list, so it is tinted as
+   well as railed. */
+.data-row.is-actionable {
+  background: var(--warn-soft);
+}
+
+.data-row.is-actionable:hover {
+  background: rgba(201, 160, 60, 0.18);
+}
+
+.data-row-main {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.data-row-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.data-row-meta {
+  display: flex;
+  gap: 0.35rem 0.7rem;
+  flex-wrap: wrap;
+  color: var(--faint);
+  font-size: 0.75rem;
+}
+
+.data-row-meta .sep {
+  opacity: 0.5;
+}
+
+.data-row-side {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: end;
+  text-align: right;
+}
+
+.data-row-amount {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* The bonus a promotion or an invite code added, when there was one. */
+.data-row-bonus {
+  color: var(--accent-text);
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+
+/* The whole row is a button when there is something to open. Rows with
+   nothing behind them stay as plain divs — a cursor that promises an action
+   that does not exist is worse than no cursor at all. */
+button.data-row {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button.data-row:hover {
+  border-color: var(--border-strong);
+}
+
+.data-row-note {
+  grid-column: 1 / -1;
+  margin: 0.2rem 0 0;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+/* ============================================================
+   Row detail
+
+   Every row in the history opens into this, whether or not there is
+   anything left to do with it. Before, only an unfinished order was
+   clickable and a completed one was a dead end: the reference you paid
+   against, the date, the code on a gift card — all of it was in the database
+   and none of it was reachable once the row stopped being actionable.
+
+   A <dialog> rather than a panel: Esc, the backdrop, focus trapping and
+   inertness behind it are all free, and the list keeps its scroll position.
+   ============================================================ */
+
+.detail-dialog {
+  width: min(460px, calc(100% - 2rem));
+  padding: 0;
+  border: var(--stroke) solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--bg-soft);
+  box-shadow: var(--shadow-lg);
+}
+
+.detail-dialog::backdrop {
+  background: rgba(5, 6, 5, 0.78);
+}
+
+.detail-body {
+  padding: 1.4rem;
+}
+
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.detail-head .h3 {
+  margin: 0;
+}
+
+.detail-kind {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--faint);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detail-note {
+  margin: 0.9rem 0 0;
+  border-radius: var(--radius-xs);
+  padding: 0.6rem 0.75rem;
+  color: var(--dim);
+  font-size: 0.82rem;
+  background: var(--surface);
+}
+
+.detail-note[data-tone="danger"] {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+/* Label left, value right, one fact per line — the shape a receipt has. */
+.detail-list {
+  display: grid;
+  margin: 1.1rem 0 0;
+  gap: 0.55rem;
+}
+
+.detail-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.55rem;
+}
+
+.detail-list > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.detail-list dt {
+  color: var(--faint);
+  font-size: 0.78rem;
+}
+
+/* Long values — a reference, a gift code — wrap rather than push the label
+   off the row. */
+.detail-list dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.detail-list dd.tabular {
+  font-family: var(--mono);
+}
+
+.detail-actions {
+  display: flex;
+  margin-top: 1.3rem;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.detail-actions .btn {
+  flex: 1 1 auto;
 }

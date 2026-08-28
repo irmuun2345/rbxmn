@@ -33,6 +33,45 @@ const READY_TO_DELIVER = 'fulfillment_pending';
 const PENDING_REVIEW = ['awaiting_payment', 'payment_submitted', 'under_review'];
 const IN_DELIVERY = ['payment_approved', 'fulfillment_pending', 'fulfillment_processing'];
 
+// The buckets an admin actually thinks in. Deliberately coarser than the
+// nine statuses: "is this waiting on me, on Roblox, or on nobody" is the
+// question being asked, and five chips answer it where nine would just be the
+// status column again.
+const QUEUE_FILTERS = [
+  { id: 'all', label: 'Бүгд', statuses: null },
+  { id: 'review', label: 'Шалгах', statuses: PENDING_REVIEW },
+  { id: 'delivery', label: 'Хүргэлт', statuses: IN_DELIVERY },
+  { id: 'done', label: 'Дууссан', statuses: ['completed'] },
+  { id: 'problem', label: 'Асуудалтай', statuses: ['payment_rejected', 'failed'] }
+];
+
+// Every order the last fetch returned. The chips and the search box work over
+// this rather than re-asking the server: the whole queue arrives in one
+// request, so a round trip per keystroke would be slower than the list it is
+// searching, and it would put the admin's own approvals a fetch behind.
+let queue = [];
+let activeFilter = 'all';
+let searchTerm = '';
+
+// The same rule the sales search uses, so the two boxes on this page behave
+// alike: a username or a reference is matched loosely, because one is
+// remembered and the other is read off a bank statement, while a Roblox id is
+// matched whole — it is pasted, and '11' as a substring would pull in every
+// account that merely contains it.
+function matchesSearch(order, term) {
+  if (!term) return true;
+  const lower = term.toLowerCase();
+  return String(order.username || '').toLowerCase().includes(lower)
+    || String(order.payment_reference || '').toLowerCase().includes(lower)
+    || String(order.roblox_id) === term;
+}
+
+function matchesFilter(order, id) {
+  const filter = QUEUE_FILTERS.find((entry) => entry.id === id);
+  if (!filter || !filter.statuses) return true;
+  return filter.statuses.includes(order.status);
+}
+
 function statusView(status) {
   return STATUS_VIEW[status] || { label: status, badge: 'badge-pending' };
 }
@@ -64,14 +103,59 @@ function actionCell(order, view) {
   return `<span class="badge ${view.badge}">${escapeHtml(view.label)}</span>`;
 }
 
-function renderOrders(orders) {
-  const countOf = (statuses) => orders.filter((order) => statuses.includes(order.status)).length;
+// The strip counts the whole queue, never the filtered view. It is the one
+// place on the page that answers "how much is outstanding", and a number that
+// shrank because a search box had two letters in it would be a lie.
+function renderStrip() {
+  const countOf = (statuses) => queue.filter((order) => statuses.includes(order.status)).length;
   $('payment-orders').textContent = countOf(PENDING_REVIEW);
   $('ready-orders').textContent = countOf(IN_DELIVERY);
   $('purchased-orders').textContent = countOf(['completed']);
+}
 
-  if (!orders.length) {
+// Counts are taken within the current search, so a chip reading 0 is telling
+// the truth about what pressing it would show — and is disabled rather than
+// leading to an empty table.
+function renderChips() {
+  const searched = queue.filter((order) => matchesSearch(order, searchTerm));
+
+  $('order-filters').innerHTML = QUEUE_FILTERS.map((filter) => {
+    const count = searched.filter((order) => matchesFilter(order, filter.id)).length;
+    const selected = filter.id === activeFilter;
+    return `
+      <button class="chip" type="button" role="radio" data-order-filter="${filter.id}"
+              aria-checked="${selected}" tabindex="${selected ? 0 : -1}"
+              ${count || selected ? '' : 'disabled'}>
+        ${escapeHtml(filter.label)}
+        <span class="chip-count">${count}</span>
+      </button>`;
+  }).join('');
+}
+
+function visibleOrders() {
+  return queue.filter((order) => (
+    matchesSearch(order, searchTerm) && matchesFilter(order, activeFilter)
+  ));
+}
+
+function renderOrders(orders) {
+  renderStrip();
+  renderChips();
+
+  $('orders-summary').textContent = queue.length
+    ? `${orders.length} / ${queue.length} захиалга`
+    : '';
+
+  if (!queue.length) {
     $('orders-list').innerHTML = '<tr><td class="empty-cell" colspan="6">Одоогоор захиалга алга.</td></tr>';
+    return;
+  }
+
+  // The queue is not empty, this view of it is — a different fact, and one an
+  // admin fixes by widening the filter rather than by waiting for orders.
+  if (!orders.length) {
+    $('orders-list').innerHTML =
+      '<tr><td class="empty-cell" colspan="6">Энэ шүүлтүүрт тохирох захиалга алга.</td></tr>';
     return;
   }
 
@@ -85,8 +169,8 @@ function renderOrders(orders) {
           <small>Roblox ID ${Number(order.roblox_id)}</small>
         </td>
         <td data-label="Захиалга">
-          <strong>${formatNumber(order.price)} R$</strong>
-          <small>${isGroup ? 'Группээр' : `Pass: ${formatNumber(order.listed_price)} R$`}</small>
+          <strong>${formatNumber(order.price)} Robux</strong>
+          <small>${isGroup ? 'Группээр' : `Pass: ${formatNumber(order.listed_price)} Robux`}</small>
         </td>
         <td data-label="Төлбөр">
           <strong>${order.amount_mnt ? formatMnt(order.amount_mnt) : '—'}</strong>
@@ -106,7 +190,8 @@ function renderOrders(orders) {
 export async function loadOrders() {
   try {
     const data = await request('/admin/orders', undefined, 'Захиалгын дарааллыг авч чадсангүй.');
-    renderOrders(data.orders);
+    queue = data.orders;
+    renderOrders(visibleOrders());
   } catch (error) {
     showResult($('orders-result'), error.message, true);
   }
@@ -126,6 +211,20 @@ export async function loadAutomationStatus() {
 }
 
 export function initOrders() {
+  $('order-filters').addEventListener('click', (event) => {
+    const chip = event.target.closest('[data-order-filter]');
+    if (!chip) return;
+    activeFilter = chip.dataset.orderFilter;
+    renderOrders(visibleOrders());
+  });
+
+  // Redrawn on every keystroke rather than on submit: the rows are already
+  // here, so there is nothing to wait for and nothing to press.
+  $('order-search').addEventListener('input', (event) => {
+    searchTerm = event.target.value.trim();
+    renderOrders(visibleOrders());
+  });
+
   $('orders-list').addEventListener('click', async (event) => {
     const button = event.target.closest('[data-payment], [data-purchased], [data-reject]');
     if (!button) return;

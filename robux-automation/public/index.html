@@ -3,20 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0c0c0d">
-  <title>RBX — Robux MNT-ээр</title>
+  <meta name="theme-color" content="#0b0d0b">
+  <title>rbxmn</title>
   <meta name="description" content="Robux-аа монгол төгрөгөөр, дотоодын банкны шилжүүлгээр аваарай. Roblox-ийн албан ёсны OAuth — нууц үг шаардахгүй, 24/7 автомат хүргэлт.">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="RBX">
+  <meta property="og:site_name" content="rbxmn">
   <meta property="og:locale" content="mn_MN">
-  <meta property="og:title" content="RBX — Robux MNT-ээр">
+  <meta property="og:title" content="rbxmn">
   <meta property="og:description" content="Robux-аа монгол төгрөгөөр, дотоодын банкны шилжүүлгээр аваарай. Нууц үг шаардахгүй, шилжүүлэг бүр автомат.">
-  <meta property="og:image" content="/favicon.svg">
+  <meta property="og:image" content="/img/logo.png">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/img/favicon.png?v=2" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="/img/logo-mark.png?v=2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700;800;900&family=Source+Sans+3:wght@400..900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <!-- One stylesheet per concern. The order is load-bearing: later files are
        allowed to override earlier ones, and every page lists them in the same
        relative order. tokens.css defines the palette the rest read;
@@ -30,8 +31,12 @@
   <link rel="stylesheet" href="/css/workspace.css">
   <link rel="stylesheet" href="/css/hero.css">
   <link rel="stylesheet" href="/css/checkout.css">
-  <link rel="stylesheet" href="/css/marketing.css">
+  <!-- Was listed on no page at all, which left every .line-item, .bonus-note,
+       .profile-row and the whole level ring unstyled on the storefront that
+       uses them. -->
   <link rel="stylesheet" href="/css/order.css">
+  <link rel="stylesheet" href="/css/marketing.css">
+  <link rel="stylesheet" href="/css/landing.css">
   <link rel="stylesheet" href="/css/footer.css">
   <link rel="stylesheet" href="/css/responsive.css">
   <script>
@@ -52,19 +57,21 @@
 
   <header class="topbar">
     <div class="page topbar-inner">
-      <a class="brand" href="/">RBX</a>
+      <a class="brand" href="/">
+        <img class="brand-mark" src="/img/logo-mark.png" alt="" width="40" height="40" aria-hidden="true"><span class="brand-word"><span class="brand-rbx">rbx</span><span class="brand-mn">mn</span></span></a>
 
       <nav class="nav" aria-label="Үндсэн цэс">
         <!-- Marketing links only matter to someone still deciding, so they
              retire once the account is connected and the workspace below
              becomes the point of the page. -->
         <div class="nav-links" id="nav-links">
-          <a class="nav-link" href="#why">Яагаад бид?</a>
-          <a class="nav-link" href="#process">Яаж ажиллах вэ?</a>
+          <a class="nav-link" href="#giftcards">Бэлгийн карт</a>
+          <a class="nav-link" href="#invite">Урилга</a>
+          <a class="nav-link" href="#about">Бидний тухай</a>
           <a class="nav-link" href="#faq">Асуулт</a>
         </div>
 
-        <a class="nav-link nav-link-cta" id="nav-cta" href="#auth-card">Захиалга эхлүүлэх</a>
+        <a class="nav-link nav-link-cta" id="nav-cta" href="#login">Нэвтрэх</a>
 
         <!-- Account lives in the header rather than taking a tab of its own:
              it is something you check, not something you do. -->
@@ -85,7 +92,7 @@
               </svg>
               <div class="level-info">
                 <strong id="level-title">Түвшин 0</strong>
-                <span id="level-progress">0 / 5,000 R$</span>
+                <span id="level-progress">0 / 5,000 Robux</span>
               </div>
             </div>
 
@@ -109,257 +116,428 @@
 
   <main id="main" class="page">
     <div id="event-banner" class="event-banner" hidden>
-      <span>🎉 <strong id="event-name">Эвент</strong> идэвхтэй — бүх захиалгад <strong id="event-bonus">+10%</strong> бонус Robux!</span>
+      <span>🎉 <strong id="event-name">Эвент</strong> · <strong id="event-bonus">+10%</strong> бонус</span>
       <span class="countdown" id="event-countdown">--:--:--</span>
     </div>
 
-    <section class="hero">
-      <div data-reveal>
-        <span class="eyebrow">Roblox · MNT-ээр</span>
-        <h1 class="h1">Robux-аа <span class="grad">хамгийн хурдан, найдвартай</span> аргаар аваарай</h1>
-        <p class="lede">Roblox-ийн албан ёсны OAuth-оор аккаунтаа холбоод, групп эсвэл game pass-аар захиалгаа баталгаажуулаад л болоо. Нууц үг хэзээ ч асуухгүй, шилжүүлэг бүрийг автомат систем гүйцэтгэнэ.</p>
-        <div class="hero-cta" id="hero-cta-row">
-          <a class="btn btn-primary" href="#auth-card">Захиалгаа эхлүүлэх →</a>
-          <a class="btn btn-ghost" href="#why">Яагаад бид вэ?</a>
-        </div>
-        <ul class="trust-row">
-          <li><i class="dot dot-live"></i>Тогтмол, ил тод үнэ</li>
-          <li><i class="dot dot-live"></i>24/7 автомат боловсруулалт</li>
-          <li><i class="dot dot-live"></i>Нууц үг шаардахгүй</li>
-        </ul>
-      </div>
+    <!-- ==================================================================
+         Landing. Everything above the sign-in line: how it works, what the
+         gift cards and the invite programme are, who we are. Prices are not
+         on it — they are per-account once a level discount applies, so the
+         list a stranger could be shown is one nobody actually pays. There is
+         exactly one action on it — connect a Roblox account — and every
+         section ends by pointing back at it. Replaced wholesale by the
+         workspace below once a session exists; see gates.js.
+         ================================================================== -->
+    <div id="landing">
+      <!-- One staged block rather than a headline floating beside a card.
+           The old shape — text left, panel right, both sitting naked on the
+           page background — is the shape of every SaaS landing page there
+           has ever been. This is a banner: a bordered stage with a red cap
+           and a stud field, the way a storefront shelf is built, with the
+           copy and the one action mounted inside it. -->
+      <section class="hero">
+        <div class="hero-stage" data-reveal>
+          <div class="hero-copy">
+            <img class="hero-mark" src="/img/logo-mark.png" alt="rbxmn" width="88" height="88">
+            <h1 class="h1">Монголд байгаа <span class="grad">хамгийн хямд</span> Robux</h1>
+            <p class="lede">Аккаунтаа холбоод захиал.</p>
 
-      <div data-reveal>
-        <div class="rate-card">
-          <div class="rate-card-inner">
-            <div class="rate-card-head">
-              <span>100 Robux тутамд</span>
-              <span class="badge badge-active"><i class="dot dot-live"></i>Шууд</span>
+            <!-- Moved out of the login card. These answer "is this safe?",
+                 which is a question about the site and not about the button
+                 — and hoisting them here shortens the card to mark, heading,
+                 button, which is the whole point of the card. -->
+            <ul class="hero-notes">
+              <li>Нууц үг асуухгүй</li>
+              <li>Албан ёсны OAuth 2.0</li>
+              <li>Хэдийд ч салгах боломжтой</li>
+            </ul>
+          </div>
+
+          <!-- The one thing a signed-out visitor can actually do. It sits in
+               the hero rather than below the fold because every other section
+               on this page is an argument for pressing it. -->
+          <div class="panel login-card" id="login">
+            <span class="badge login-state" id="auth-state">Холбогдоогүй</span>
+            <div class="login-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3l7.5 3.4v5c0 4.4-3.1 8.3-7.5 9.6-4.4-1.3-7.5-5.2-7.5-9.6v-5z"/><path d="M9.2 12.2l2 2 3.6-4"/></svg>
             </div>
-            <strong class="rate-value tabular" id="live-rate" data-value="0">4,500 ₮</strong>
+            <h2 class="h3">Roblox-оор нэвтрэх</h2>
 
-            <div class="calc-card">
-              <label id="hero-package-label">Тогтмол багцууд</label>
-              <div class="package-grid" id="hero-package-grid" role="radiogroup" aria-labelledby="hero-package-label">
-                <p class="hint">Багцууд ачаалж байна…</p>
+            <div class="auth-actions">
+              <button class="btn btn-primary full" id="generate-qr-btn" type="button">Roblox-оор нэвтрэх</button>
+            </div>
+
+            <!-- Filled in once /auth/qr answers. The link leads and the QR folds
+                 away beneath it because most buyers arrive on a phone, and a phone
+                 cannot photograph its own screen: the code is only readable by a
+                 *second* device, so it is the fallback, not the front door. -->
+            <div class="auth-methods" id="auth-methods" hidden>
+              <a class="btn btn-primary oauth-link" id="oauth-link" href="#"
+                 target="_blank" rel="noopener noreferrer">Roblox дээр нээх ↗</a>
+              <details class="qr-fallback" id="qr-fallback">
+                <summary>Өөр төхөөрөмжөөс нэвтрэх</summary>
+                <div class="qr-frame" id="qr-container">
+                  <img id="qr-image" alt="Roblox OAuth зөвшөөрлийн QR код" hidden>
+                  <span>Кодыг өөр төхөөрөмжийн камераар уншуулна уу.</span>
+                </div>
+              </details>
+            </div>
+
+            <p id="qr-result" class="notice" role="status" aria-live="polite" hidden></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Бэлгийн карт + Урилга ---------- -->
+      <!-- The two explainers share a row. Each is short enough — a heading,
+           the object, one button — that giving each the full width of the
+           page left two long strips of empty margin stacked on top of each
+           other. Side by side they fill the row and halve the scroll.
+
+           They stay two separate sections with their own ids, because
+           #giftcards and #invite are nav targets and page.js drives the
+           current-section highlight off an observer over these same
+           elements. The wrapper is layout and nothing else. -->
+      <div class="showcase-row">
+      <section class="section" id="giftcards" data-reveal>
+        <!-- The heading sits *inside* the split rather than above it.
+
+             Both explainers here used to carry a numbered three-step shelf in
+             the right-hand column, under a heading that spanned the section.
+             With the shelf gone that column was empty apart from one button,
+             and a heading spanning a half-empty row reads as a section that
+             lost its content. Moving the heading down into the column fills
+             it with the thing it was always describing, and the section
+             becomes one banded object — art, title, action — instead of a
+             title over a gap. -->
+        <div class="showcase">
+          <header class="section-head">
+            <span class="eyebrow">Бэлгийн карт</span>
+            <h2 class="h2">Найздаа Robux авч өгөөрэй</h2>
+          </header>
+
+          <!-- A picture of the thing being sold. The code is deliberately a
+               dummy: nothing here is fetched or real. -->
+          <div class="gift-visual" aria-hidden="true">
+            <div class="gift-card-mock">
+              <div class="gift-mock-head">
+                <span class="brand brand-sm"><span class="brand-word"><span class="brand-rbx">rbx</span><span class="brand-mn">mn</span></span></span>
+                <span class="gift-mock-tag">GIFT CARD</span>
               </div>
-              <button class="btn btn-primary full field-spaced" type="button" id="hero-package-cta">
-                Энэ багцаар үргэлжлүүлэх →
-              </button>
+              <strong class="gift-mock-amount tabular">1,000 Robux</strong>
+              <span class="gift-mock-code">GIFT-A7K2M9QX</span>
+              <div class="gift-mock-foot">
+                <span>Нэг удаа ашиглана</span>
+                <span>₮</span>
+              </div>
             </div>
           </div>
+
+          <div class="showcase-body">
+            <a class="btn btn-primary btn-lg" href="#login">Нэвтрээд авах →</a>
+          </div>
         </div>
+      </section>
+
+      <section class="section" id="invite" data-reveal>
+        <div class="showcase">
+          <header class="section-head">
+            <span class="eyebrow">Урилга</span>
+            <h2 class="h2">Найзаа уриад Robux-аа аваарай</h2>
+          </header>
+
+          <!-- Percentages come from the server so the marketing copy can
+               never disagree with what an order actually pays out. They are
+               the whole section now that the steps under them are gone: the
+               number is the offer, and the button is how you collect it. -->
+          <div class="invite-stats">
+            <div class="invite-stat">
+              <span class="invite-stat-value tabular" id="invite-bonus">—</span>
+              <span class="invite-stat-label">Найзад нэмэлт Robux</span>
+            </div>
+            <div class="invite-stat">
+              <span class="invite-stat-value tabular" id="invite-commission">—</span>
+              <span class="invite-stat-label">Танд ногдох шимтгэл</span>
+            </div>
+            <p class="hint" id="invite-note">Зөвхөн хүргэгдсэн захиалга тооцогдоно.</p>
+          </div>
+
+          <div class="showcase-body">
+            <a class="btn btn-primary btn-lg" href="#login">Нэвтрээд код үүсгэх →</a>
+          </div>
+        </div>
+      </section>
       </div>
-    </section>
 
-    <!-- Connecting is a one-time step, so it sits above the workspace while
-         it is still outstanding and disappears entirely afterwards. -->
-    <section id="auth-card" class="auth-section">
-      <div class="panel auth-panel" id="qr-auth">
-        <div class="panel-head">
-          <div>
-            <h2 class="h3">Roblox-оор баталгаажуулах</h2>
-          </div>
-          <span class="badge" id="auth-state">Холбогдоогүй</span>
-        </div>
-
-        <p>Roblox-ийн өөрийн нэвтрэх, зөвшөөрөх хуудас нээгдэнэ. Нууц үгээ энэ сайт дээр оруулахгүй.</p>
-        <div class="auth-actions">
-          <button class="btn btn-primary full" id="generate-qr-btn" type="button">Roblox-оор нэвтрэх</button>
-        </div>
-
-        <!-- Filled in once /auth/qr answers. The link leads and the QR folds
-             away beneath it because most buyers arrive on a phone, and a phone
-             cannot photograph its own screen: the code is only readable by a
-             *second* device, so it is the fallback, not the front door. -->
-        <div class="auth-methods" id="auth-methods" hidden>
-          <a class="btn btn-primary oauth-link" id="oauth-link" href="#"
-             target="_blank" rel="noopener noreferrer">Roblox дээр нээх ↗</a>
-          <details class="qr-fallback" id="qr-fallback">
-            <summary>Өөр төхөөрөмжөөс нэвтрэх</summary>
-            <div class="qr-frame" id="qr-container">
-              <img id="qr-image" alt="Roblox OAuth зөвшөөрлийн QR код" hidden>
-              <span>Энэ кодыг өөр утас, компьютерийн камераар уншуулна уу.</span>
+      <!-- ---------- Урамшуулал ---------- -->
+      <!-- Public on purpose: what is on offer is exactly what a stranger
+           should be able to see before deciding whether signing up is worth
+           it. Revealed by events.js only when something is running. -->
+      <section class="section" id="promos" data-reveal hidden>
+        <header class="section-head">
+          <span class="eyebrow">Урамшуулал</span>
+          <h2 class="h2">Одоо явагдаж буй эвентүүд</h2>
+        </header>
+        <div class="promo-grid">
+          <div class="panel">
+            <div id="landing-events-list" data-events-list>
+              <p class="hint">Ачаалж байна…</p>
             </div>
+          </div>
+          <div class="panel" id="landing-deals-panel" hidden>
+            <h3 class="h3">Хямдралтай багцууд</h3>
+            <div id="landing-deals-list" class="data-list" data-event-deals></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Бидний тухай ---------- -->
+      <section class="section why" id="about" data-reveal>
+        <header class="section-head">
+          <span class="eyebrow">Бидний тухай</span>
+          <h2 class="h2">rbxmn гэж юу вэ?</h2>
+          <p class="lede">Монголд байгаа хамгийн хямд Robux.</p>
+        </header>
+        <div class="why-grid">
+          <article class="why-card">
+            <span class="why-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3l7.5 3.4v5c0 4.4-3.1 8.3-7.5 9.6-4.4-1.3-7.5-5.2-7.5-9.6v-5z"/><path d="M9.2 12.2l2 2 3.6-4"/></svg>
+            </span>
+            <h3 class="h3">Аюулгүй холболт</h3>
+            <p>Roblox-ийн албан ёсны OAuth 2.0. Нэвтрэх мэдээлэл бидэнд ирэхгүй.</p>
+          </article>
+          <article class="why-card">
+            <span class="why-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13z"/></svg>
+            </span>
+            <h3 class="h3">Автомат систем</h3>
+            <p>Төлбөр баталгаажмагц Robux шууд шилжинэ.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="faq" id="faq" data-reveal>
+        <header class="section-head">
+          <!-- The eyebrow used to read "Түгээмэл асуулт" and the heading
+               "Мэдэх шаардлагатай зүйлс". The heading takes that phrase now,
+               so the eyebrow steps aside rather than repeating it a line
+               above itself. -->
+          <span class="eyebrow">Тусламж</span>
+          <h2 class="h2">Түгээмэл асуулт</h2>
+        </header>
+        <div class="faq-list">
+          <details class="faq-item">
+            <summary><span>Та нар найдвартай юу? Robux минь ирэх үү?</span><span class="faq-icon" aria-hidden="true">+</span></summary>
+            <div class="faq-body"><p>Тийм. Roblox-ийн албан ёсны OAuth 2.0-оор холбогддог тул нууц үг бидэнд ирэхгүй. Захиалга бүр өөрийн гүйлгээний утгатай бөгөөд төлбөр баталгаажмагц Robux автоматаар хүргэгдэнэ.</p></div>
+          </details>
+          <details class="faq-item">
+            <summary><span>Ямар төлбөрийн хэлбэр дэмждэг вэ?</span><span class="faq-icon" aria-hidden="true">+</span></summary>
+            <div class="faq-body"><p>Дотоодын банкны шилжүүлэг. QPay тун удахгүй.</p></div>
+          </details>
+          <details class="faq-item">
+            <summary><span>Та нар миний нууц үгийг авах уу?</span><span class="faq-icon" aria-hidden="true">+</span></summary>
+            <div class="faq-body"><p>Үгүй. Албан ёсны OAuth ашигладаг тул нэвтрэх мэдээлэл чинь зөвхөн Roblox дээр үлдэнэ.</p></div>
+          </details>
+          <details class="faq-item">
+            <summary><span>Robux хэзээ ирэх вэ?</span><span class="faq-icon" aria-hidden="true">+</span></summary>
+            <div class="faq-body"><p>Төлбөр баталгаажмагц автоматаар хүргэгдэнэ — ихэнхдээ хэдхэн минут.</p></div>
           </details>
         </div>
+      </section>
+    </div>
 
-        <p id="qr-result" class="notice" role="status" aria-live="polite" hidden></p>
+
+    <!-- ==================================================================
+         Workspace. Hidden outright until a session exists — a signed-out
+         visitor has exactly one thing to do, and four locked tabs sitting
+         in front of it were noise, not discovery.
+         ================================================================== -->
+    <section class="workspace" id="workspace" hidden>
+      <div class="workspace-head">
+        <h2 class="h2" id="workspace-greeting">Тавтай морил</h2>
       </div>
-    </section>
 
-    <!-- ==================== tabbed workspace ==================== -->
-    <section class="workspace" id="workspace">
-      <div class="tabs" role="tablist" aria-label="RBX үйлчилгээнүүд">
+      <!-- Five tabs, and on a phone this same markup is a bar fixed to the
+           bottom of the screen — see responsive.css. That is what the icons
+           are for: a bottom bar of five text labels is unreadable, and the
+           short label under each icon is what fits there. -->
+      <div class="tabs" role="tablist" aria-label="rbxmn үйлчилгээнүүд">
         <button class="tab" role="tab" type="button" id="tab-buy"
                 aria-controls="panel-buy" aria-selected="true" tabindex="0" data-tab="buy">
-          <span class="tab-label">Robux авах</span>
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 12H7z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
+          <span class="tab-label">Robux авах</span><span class="tab-short">Авах</span>
+        </button>
+        <button class="tab" role="tab" type="button" id="tab-orders"
+                aria-controls="panel-orders" aria-selected="false" tabindex="-1" data-tab="orders">
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16l-7-3-7 3z"/><path d="M9 9h6M9 13h4"/></svg>
+          <span class="tab-label">Захиалгууд</span><span class="tab-short">Захиалга</span>
+          <span class="tab-count" id="tab-orders-count" hidden title="Хүлээгдэж буй захиалга"></span>
         </button>
         <button class="tab" role="tab" type="button" id="tab-gift"
                 aria-controls="panel-gift" aria-selected="false" tabindex="-1" data-tab="gift">
-          <span class="tab-label">Бэлгийн карт</span>
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 12h18M12 8v12"/><path d="M12 8S9 4 7 5.5 9 8 12 8s5-4 3-2.5S12 8 12 8z"/></svg>
+          <span class="tab-label">Бэлгийн карт</span><span class="tab-short">Бэлэг</span>
           <svg class="tab-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
         </button>
         <button class="tab" role="tab" type="button" id="tab-referral"
                 aria-controls="panel-referral" aria-selected="false" tabindex="-1" data-tab="referral">
-          <span class="tab-label">Урилга</span>
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 8h4M19 6v4"/></svg>
+          <span class="tab-label">Урилга</span><span class="tab-short">Урилга</span>
           <svg class="tab-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
         </button>
         <button class="tab" role="tab" type="button" id="tab-events"
                 aria-controls="panel-events" aria-selected="false" tabindex="-1" data-tab="events">
-          <span class="tab-label">Эвент</span>
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13z"/></svg>
+          <span class="tab-label">Эвент</span><span class="tab-short">Эвент</span>
           <span class="tab-pip" id="tab-events-pip" hidden title="Идэвхтэй эвент"></span>
         </button>
       </div>
 
       <!-- ---------- Robux авах ---------- -->
       <div class="tab-panel" role="tabpanel" id="panel-buy" aria-labelledby="tab-buy"
-           tabindex="0" data-requires="auth" hidden>
-        <div class="gate" data-gate hidden></div>
-
-        <div data-gated>
-          <div class="panel" id="phone-link-panel" hidden>
-            <h3 class="h3">Утасны дугаараа холбоно уу</h3>
-            <p class="hint">Нэг аккаунтад нэг дугаар. Дараа нь өөрчлөх боломжгүй.</p>
-            <div class="calc-row field-spaced">
-              <input id="phone-number-input" type="tel" inputmode="numeric" maxlength="8" placeholder="99112233" aria-label="Утасны дугаар">
-              <button class="btn btn-primary" id="link-phone-btn" type="button">Холбох</button>
-            </div>
-            <p id="phone-link-result" class="notice" role="status" aria-live="polite" hidden></p>
+           tabindex="0" hidden>
+        <div class="panel" id="phone-link-panel" hidden>
+          <h3 class="h3">Утасны дугаараа холбоно уу</h3>
+          <p class="hint">Нэг аккаунтад нэг дугаар, дараа нь өөрчлөгдөхгүй.</p>
+          <div class="calc-row field-spaced">
+            <input id="phone-number-input" type="tel" inputmode="numeric" maxlength="8" placeholder="99112233" aria-label="Утасны дугаар">
+            <button class="btn btn-primary" id="link-phone-btn" type="button">Холбох</button>
           </div>
-
-          <div id="order-body">
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <h3 class="h3">Захиалга</h3>
-                </div>
-              </div>
-
-              <div id="create-form">
-                <!-- The route is chosen by the server from the buyer's group
-                     eligibility, so this is a status display, not a control. -->
-                <div class="route-banner" id="route-banner" hidden>
-                  <div class="route-banner-head">
-                    <span class="route-label" id="route-label">Хүлээн авах арга</span>
-                    <span class="badge badge-active" id="route-badge">—</span>
-                  </div>
-                  <p class="hint" id="route-explainer"></p>
-                  <div class="route-progress" id="route-progress" hidden>
-                    <div class="route-progress-bar"><span id="route-progress-fill"></span></div>
-                    <small id="route-progress-label"></small>
-                  </div>
-
-                  <!-- Shown only on the Game Pass route. This is the way off
-                       it: joining starts the membership clock, and once it
-                       matures every later order skips Game Pass entirely. -->
-                  <div class="route-unlock" id="route-unlock" hidden>
-                    <p class="route-unlock-copy" id="route-unlock-copy"></p>
-                    <div class="route-unlock-actions">
-                      <a class="btn btn-primary btn-sm" id="route-join-link"
-                         href="https://www.roblox.com/groups" target="_blank" rel="noopener noreferrer">
-                        Группд элсэх ↗
-                      </a>
-                      <button class="btn btn-ghost btn-sm" id="route-recheck-btn" type="button">
-                        Элссэн — шалгах
-                      </button>
-                    </div>
-                    <p id="route-recheck-result" class="notice" role="status" aria-live="polite" hidden></p>
-                  </div>
-                </div>
-
-                <div id="method-group-fields" hidden>
-                  <div class="line-item">
-                    <span>Групп</span>
-                    <strong id="group-name-display">Ачаалж байна…</strong>
-                  </div>
-                  <a class="btn btn-ghost full" id="join-group-link" href="https://www.roblox.com/groups" target="_blank" rel="noopener noreferrer">Roblox группд хандах ↗</a>
-                </div>
-
-                <!-- No name/description fields: the Game Pass is delivery
-                     plumbing, so the server names it. The buyer only ever
-                     picks an experience, and only with more than one. -->
-                <div id="method-gamepass-fields" hidden>
-                  <div class="field" id="gamepass-universe-field" hidden>
-                    <label for="gamepass-universe">Аль тоглоом дээр үүсгэх вэ?</label>
-                    <select id="gamepass-universe"></select>
-                  </div>
-                  <p class="notice error" id="gamepass-blocked" role="status" hidden></p>
-                </div>
-
-                <div class="field">
-                  <label id="order-package-label">Robux багц сонгох</label>
-                  <div class="package-grid" id="order-package-grid" role="radiogroup" aria-labelledby="order-package-label"></div>
-                </div>
-                <div class="line-item">
-                  <span>Төлөх дүн</span>
-                  <strong class="tabular" id="order-total">—</strong>
-                </div>
-                <button class="btn btn-primary full" id="create-order-btn" type="button">Захиалга үүсгэх</button>
-              </div>
-
-              <div class="payment-panel" id="payment-panel" hidden>
-                <div class="stepper" id="order-stepper">
-                  <div class="stepper-item is-done" data-step="1"><span class="stepper-dot">1</span><span class="label">Захиалга</span></div>
-                  <div class="stepper-item is-active" data-step="2"><span class="stepper-dot">2</span><span class="label">Төлбөр</span></div>
-                  <div class="stepper-item" data-step="3"><span class="stepper-dot">3</span><span class="label">Боловсруулж байна</span></div>
-                  <div class="stepper-item" data-step="4"><span class="stepper-dot">4</span><span class="label">Дууссан</span></div>
-                </div>
-
-                <div class="payment-panel-head">
-                  <div>
-                    <h3 class="h3">Дансаар шилжүүлнэ үү</h3>
-                  </div>
-                  <span class="badge badge-pending" id="payment-status"><i class="dot"></i>Төлбөр хүлээж байна</span>
-                </div>
-
-                <div class="payment-method-row" role="group" aria-label="Төлбөрийн хэлбэр">
-                  <span class="payment-method is-selected">Дансаар шилжүүлэх</span>
-                  <span class="payment-method is-disabled" title="Тун удахгүй нэмэгдэнэ">QPay <span class="badge">Тун удахгүй</span></span>
-                </div>
-
-                <p class="bonus-note" id="bonus-note" hidden></p>
-
-                <!-- Rendered from the server's list — see bank-accounts.js.
-                     Any one of these accounts is fine; the buyer picks the one
-                     at their own bank so the transfer clears immediately. -->
-                <p class="hint">Доорх дансны аль нэг рүү шилжүүлнэ үү. Өөрийн банкаа сонговол шилжүүлэг шууд очно.</p>
-                <div class="bank-list" id="bank-list"></div>
-
-                <div class="calc-card field-spaced">
-                  <label>Гүйлгээний утга (заавал бичнэ)</label>
-                  <span class="calc-total tabular full" id="payment-reference">—</span>
-                  <button type="button" class="btn btn-ghost btn-sm full field-spaced" data-copy-target="payment-reference">Хуулах</button>
-                  <p class="hint">Гүйлгээний утгад яг энэ кодыг бичнэ үү.</p>
-                </div>
-
-                <div class="line-item">
-                  <span>Шилжүүлэх дүн</span>
-                  <strong class="tabular" id="payment-amount">—</strong>
-                </div>
-
-                <!-- Proof of transfer. Hidden once the receipt is in review
-                     and shown again if an admin rejects it, so a buyer can
-                     correct a bad upload against the same order. -->
-                <div class="calc-card field-spaced" id="receipt-upload">
-                  <p class="hint">Шилжүүлгийн баримтаа хавсаргана уу. JPG, PNG, WEBP эсвэл PDF, 5MB хүртэл.</p>
-                  <div class="file-field field-spaced">
-                    <input type="file" id="receipt-file" class="file-input"
-                           accept="image/jpeg,image/png,image/webp,application/pdf">
-                    <label class="file-button" for="receipt-file">Шилжүүлгийн баримт сонгох</label>
-                    <span class="file-name" id="receipt-file-name">Файл сонгоогүй байна</span>
-                  </div>
-                  <button type="button" class="btn btn-primary full field-spaced" id="receipt-submit">Баримт илгээх</button>
-                  <p id="receipt-result" class="notice" role="status" aria-live="polite" hidden></p>
-                </div>
-
-                <p id="payment-result" class="notice" role="status" aria-live="polite" hidden></p>
-              </div>
-
-              <p id="create-result" class="notice" role="status" aria-live="polite" hidden></p>
-            </article>
-          </div>
+          <p id="phone-link-result" class="notice" role="status" aria-live="polite" hidden></p>
         </div>
+
+        <div id="order-body">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="h3">Захиалга</h3>
+              </div>
+            </div>
+
+            <div id="create-form">
+              <!-- How the Robux actually arrive is the server’s business, not
+                   the buyer’s. It picks the delivery route, and nothing about
+                   that choice is rendered — no route name, no membership
+                   clock, no join step. The only thing left here is the one
+                   question the buyer alone can answer.
+                   -->
+              <div id="method-gamepass-fields" hidden>
+                <div class="field" id="gamepass-universe-field" hidden>
+                  <label for="gamepass-universe">Аль тоглоом дээрээ хүлээн авах вэ?</label>
+                  <select id="gamepass-universe"></select>
+                </div>
+                <p class="notice error" id="gamepass-blocked" role="status" hidden></p>
+              </div>
+
+              <!-- The picker is a <select>, and the container around it stays
+                   a plain div because the four states this list can be in —
+                   loading, empty, error, loaded — are rendered into it by the
+                   shared renderers in common/dom.js, and a <select> cannot
+                   host a skeleton or a retry button. packages.js puts the
+                   real control inside once there is something to choose. -->
+              <div class="field">
+                <label id="order-package-label" for="order-package-select">Robux багц сонгох</label>
+                <div class="package-picker" id="order-package-picker"></div>
+              </div>
+              <div class="line-item line-item-total">
+                <span>Төлөх дүн</span>
+                <strong class="tabular" id="order-total">—</strong>
+              </div>
+              <button class="btn btn-primary btn-lg full" id="create-order-btn" type="button">Захиалга үүсгэх</button>
+            </div>
+
+            <div class="payment-panel" id="payment-panel" hidden>
+              <div class="stepper" id="order-stepper">
+                <div class="stepper-item is-done" data-step="1"><span class="stepper-dot">1</span><span class="label">Захиалга</span></div>
+                <div class="stepper-item is-active" data-step="2"><span class="stepper-dot">2</span><span class="label">Төлбөр</span></div>
+                <div class="stepper-item" data-step="3"><span class="stepper-dot">3</span><span class="label">Боловсруулж байна</span></div>
+                <div class="stepper-item" data-step="4"><span class="stepper-dot">4</span><span class="label">Дууссан</span></div>
+              </div>
+
+              <div class="payment-panel-head">
+                <div>
+                  <h3 class="h3">Дансаар шилжүүлнэ үү</h3>
+                </div>
+                <span class="badge badge-pending" id="payment-status"><i class="dot"></i>Төлбөр хүлээж байна</span>
+              </div>
+
+              <div class="payment-method-row" role="group" aria-label="Төлбөрийн хэлбэр">
+                <span class="payment-method is-selected">Дансаар шилжүүлэх</span>
+                <span class="payment-method is-disabled" title="Тун удахгүй нэмэгдэнэ">QPay <span class="badge">Тун удахгүй</span></span>
+              </div>
+
+              <p class="bonus-note" id="bonus-note" hidden></p>
+
+              <!-- Rendered from the server's list — see bank-accounts.js.
+                   Any one of these accounts is fine; the buyer picks the one
+                   at their own bank so the transfer clears immediately. -->
+              <p class="hint">Өөрийн банкны данс руу шилжүүлбэл шууд очно.</p>
+              <div class="bank-list" id="bank-list"></div>
+
+              <div class="calc-card field-spaced">
+                <label>Гүйлгээний утга (заавал бичнэ)</label>
+                <span class="calc-total tabular full" id="payment-reference">—</span>
+                <button type="button" class="btn btn-ghost btn-sm full field-spaced" data-copy-target="payment-reference">Хуулах</button>
+              </div>
+
+              <div class="line-item line-item-total">
+                <span>Шилжүүлэх дүн</span>
+                <strong class="tabular" id="payment-amount">—</strong>
+              </div>
+
+              <!-- Proof of transfer. Hidden once the receipt is in review
+                   and shown again if an admin rejects it, so a buyer can
+                   correct a bad upload against the same order. -->
+              <div class="calc-card field-spaced" id="receipt-upload">
+                <p class="hint">Баримт: JPG, PNG, WEBP, PDF · 5MB хүртэл.</p>
+                <div class="file-field field-spaced">
+                  <input type="file" id="receipt-file" class="file-input"
+                         accept="image/jpeg,image/png,image/webp,application/pdf">
+                  <label class="file-button" for="receipt-file">Шилжүүлгийн баримт сонгох</label>
+                  <span class="file-name" id="receipt-file-name">Файл сонгоогүй байна</span>
+                </div>
+                <button type="button" class="btn btn-primary full field-spaced" id="receipt-submit">Баримт илгээх</button>
+                <p id="receipt-result" class="notice" role="status" aria-live="polite" hidden></p>
+              </div>
+
+              <p id="payment-result" class="notice" role="status" aria-live="polite" hidden></p>
+
+              <!-- The order does not vanish when this is pressed: it keeps its
+                   reference and stays in the history tab, resumable from
+                   there. Without it, placing a second order meant reloading
+                   the page. -->
+              <button class="btn btn-ghost full field-spaced" id="new-order-btn" type="button">
+                Өөр захиалга үүсгэх
+              </button>
+            </div>
+
+            <p id="create-result" class="notice" role="status" aria-live="polite" hidden></p>
+          </article>
+        </div>
+      </div>
+
+      <!-- ---------- Захиалгууд ----------
+           Every order this customer has ever placed. /profile has always
+           returned the list; until now the page rendered only the one being
+           placed, so a transfer made yesterday had no status to check and an
+           order abandoned by a closed tab could not be reached at all. -->
+      <div class="tab-panel" role="tabpanel" id="panel-orders" aria-labelledby="tab-orders"
+           tabindex="0" hidden>
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 class="h3">Миний захиалгууд</h3>
+            </div>
+          </div>
+
+          <div class="list-toolbar">
+            <div class="chip-row" id="order-filters" role="radiogroup" aria-label="Захиалгын шүүлтүүр"></div>
+            <span class="list-summary" id="orders-summary"></span>
+          </div>
+
+          <div id="orders-list" aria-live="polite"></div>
+        </article>
       </div>
 
       <!-- ---------- Бэлгийн карт ---------- -->
@@ -376,8 +554,21 @@
                 </div>
               </div>
 
+              <!-- No package grid here any more: a gift card is worth
+                   whatever the giver decides, so the amount is typed rather
+                   than picked off the shelf the Buy tab sells from. -->
               <div id="giftcard-create-form">
-                <div class="package-grid" id="giftcard-package-grid" role="radiogroup" aria-label="Бэлгийн картын багц"></div>
+                <div class="field">
+                  <label for="giftcard-robux-input">Хэдэн Robux бэлэглэх вэ?</label>
+                  <input id="giftcard-robux-input" type="number" inputmode="numeric"
+                         min="100" max="1000" step="1" placeholder="100"
+                         autocomplete="off" aria-describedby="giftcard-robux-hint">
+                  <p class="hint" id="giftcard-robux-hint">100-аас 1,000 Robux хооронд.</p>
+                </div>
+                <div class="line-item field-spaced">
+                  <span>Төлөх дүн</span>
+                  <strong class="tabular" id="giftcard-quote">—</strong>
+                </div>
                 <button class="btn btn-primary full field-spaced" id="create-giftcard-btn" type="button">Бэлгийн карт авах</button>
               </div>
               <p id="giftcard-create-result" class="notice" role="status" aria-live="polite" hidden></p>
@@ -394,20 +585,23 @@
                   <span>Шилжүүлэх дүн</span>
                   <strong class="tabular" id="giftcard-payment-amount">—</strong>
                 </div>
-                <p class="hint">Төлбөр баталгаажмагц код доор харагдана.</p>
+
+                <!-- The card stays in Захиалгууд with its reference and can
+                     be reopened from there, so this only hands the form
+                     back. Without it, buying a second card meant a reload. -->
+                <button class="btn btn-ghost full field-spaced" id="new-giftcard-btn" type="button">
+                  Өөр бэлгийн карт авах
+                </button>
               </div>
 
-              <div class="field-spaced">
-                <h4 class="h3">Миний бэлгийн картууд</h4>
-                <div id="my-giftcards-list" class="editable-list">
-                  <p class="hint">Одоогоор бэлгийн карт алга.</p>
-                </div>
-              </div>
+              <!-- The buyer's own cards used to be listed here. They now sit
+                   in the Захиалгууд tab alongside every other purchase —
+                   one list, and the code is on the row's detail view. -->
             </article>
 
             <aside class="panel panel-surface">
               <h3 class="h3">Код ашиглах</h3>
-              <p class="hint">Код бүр нэг л удаа ажиллана.</p>
+              <p class="hint">Код нэг удаа ажиллана.</p>
               <div class="field field-spaced">
                 <label for="redeem-code-input">Бэлгийн картын код</label>
                 <input id="redeem-code-input" type="text" placeholder="GIFT-XXXXXXXX">
@@ -430,17 +624,17 @@
               <div class="panel-head">
                 <div>
                   <h3 class="h3">Миний код</h3>
-                  <p>Код нэг удаа үүснэ, дараа нь өөрчлөгдөхгүй.</p>
                 </div>
               </div>
 
-              <!-- Code creation. Hidden once a code exists, since a code is
-                   permanent — there is nothing to re-submit. -->
-              <div id="referral-create-form">
+              <!-- Code creation. Codes are issued by an admin, so this form
+                   stays hidden; the markup is kept because the endpoint
+                   behind it still exists. -->
+              <div id="referral-create-form" hidden>
                 <div class="field">
                   <label for="referral-code-input">Кодоо сонгоно уу</label>
                   <input type="text" id="referral-code-input" placeholder="Жишээ: SUNEE" maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false">
-                  <p class="hint">3-8 тэмдэгт, зөвхөн латин үсэг ба тоо.</p>
+                  <p class="hint">3-8 тэмдэгт, латин үсэг ба тоо.</p>
                   <p id="referral-code-availability" class="hint" aria-live="polite"></p>
                 </div>
                 <button class="btn btn-primary full" id="create-referral-btn" type="button">Код үүсгэх</button>
@@ -460,6 +654,10 @@
                   <span>Таны шимтгэл</span>
                   <strong id="referral-commission-display">—</strong>
                 </div>
+                <div class="line-item" id="referral-uses-row">
+                  <span>Ашиглах эрх</span>
+                  <strong id="referral-uses-display">—</strong>
+                </div>
               </div>
 
               <p id="referral-create-result" class="notice" role="status" aria-live="polite" hidden></p>
@@ -469,7 +667,6 @@
               <div class="panel-head">
                 <div>
                   <h3 class="h3">Орлого</h3>
-                  <p>Зөвхөн хүргэгдсэн захиалга тооцогдоно.</p>
                 </div>
               </div>
 
@@ -482,7 +679,7 @@
               <div class="field field-spaced" id="referral-apply-form">
                 <label for="referral-apply-input">Урилгын код оруулах</label>
                 <input type="text" id="referral-apply-input" placeholder="Найзынхаа код" maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false">
-                <p class="hint">Эхний захиалгаасаа өмнө, нэг л удаа.</p>
+                <p class="hint">Эхний захиалгаасаа өмнө, нэг удаа.</p>
                 <button class="btn btn-ghost full field-spaced" id="apply-referral-btn" type="button">Кодыг идэвхжүүлэх</button>
               </div>
 
@@ -498,18 +695,15 @@
       </div>
 
       <!-- ---------- Эвент ---------- -->
-      <!-- No gate: what is on offer is exactly what a stranger should be able
-           to see before deciding whether signing up is worth it. -->
       <div class="tab-panel" role="tabpanel" id="panel-events" aria-labelledby="tab-events"
            tabindex="0" hidden>
         <div class="panel">
           <div class="panel-head">
             <div>
               <h3 class="h3">Урамшуулал</h3>
-              <p>Эвентийн үед төлөх дүн хэвээр, авах Robux нэмэгдэнэ.</p>
             </div>
           </div>
-          <div id="events-list">
+          <div id="events-list" data-events-list>
             <p class="hint">Ачаалж байна…</p>
           </div>
         </div>
@@ -518,130 +712,82 @@
           <div class="panel-head">
             <div>
               <h3 class="h3">Хямдралтай багцууд</h3>
-              
             </div>
           </div>
-          <div id="event-deals-list" class="editable-list"></div>
+          <div id="event-deals-list" class="data-list" data-event-deals></div>
         </div>
       </div>
     </section>
-
-    <!-- Marketing. Retires once the account is connected — at that point the
-         workspace is what the visitor came back for. -->
-    <div id="marketing">
-      <section class="why" id="why" data-reveal>
-        <header class="section-head">
-          <span class="eyebrow">Давуу тал</span>
-          <h2 class="h2">Яагаад олон хэрэглэгч биднийг сонгодог вэ?</h2>
-          <p class="lede">Хурд, ил тод байдал, аюулгүй байдлыг нэг дор нэгтгэсэн.</p>
-        </header>
-        <div class="why-grid">
-          <article class="why-card">
-            <span class="why-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-            </span>
-            <h3 class="h3">Бэлгийн карт</h3>
-            <p>Найздаа Robux бэлэглэ — код нэг л удаа ашиглагдана, төрсөн өдөр гэх мэт бэлэгт тохиромжтой.</p>
-          </article>
-          <article class="why-card">
-            <span class="why-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13z"/></svg>
-            </span>
-            <h3 class="h3">Автомат систем</h3>
-            <p>Группд нэгдэх хүсэлтийг bot автоматаар зөвшөөрч, Robux-ийг шууд шилжүүлдэг.</p>
-          </article>
-          <article class="why-card">
-            <span class="why-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
-            </span>
-            <h3 class="h3">MNT-ээр шууд төлбөр</h3>
-            <p>Гадаад карт, хэтэвч хэрэггүй — дотоодын банкны шилжүүлгээр л хангалттай.</p>
-          </article>
-          <article class="why-card">
-            <span class="why-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>
-            </span>
-            <h3 class="h3">Ил тод ханш</h3>
-            <p>Ханш шууд харагдана, захиалгын явцыг алхам тус бүрээр хянах боломжтой.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="process" id="process" data-reveal>
-        <header class="section-head">
-          <h2 class="h2">3 алхам. Илүү юмгүй.</h2>
-        </header>
-        <div class="steps">
-          <article class="step">
-            <span class="step-num">1</span>
-            <h3 class="h3">Аккаунтаа холбоно</h3>
-            <p>Roblox-ийн албан ёсны OAuth дэлгэцээр аккаунтаа баталгаажуулна.</p>
-          </article>
-          <article class="step">
-            <span class="step-num">2</span>
-            <h3 class="h3">Багцаа сонгоно</h3>
-            <p>Хэрэгтэй хэмжээгээ сонгоход төгрөгийн дүн шууд бодогдоно.</p>
-          </article>
-          <article class="step">
-            <span class="step-num">3</span>
-            <h3 class="h3">Төлбөрөө шилжүүлнэ</h3>
-            <p>Дансаар шилжүүлээд баримтаа хавсаргамагц Robux автоматаар хүргэгдэнэ.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="faq" id="faq" data-reveal>
-        <header class="section-head">
-          <span class="eyebrow">Түгээмэл асуулт</span>
-          <h2 class="h2">Мэдэх шаардлагатай зүйлс</h2>
-        </header>
-        <div class="faq-list">
-          <details class="faq-item">
-            <summary><span>Robux хэзээ ирэх вэ?</span><span class="faq-icon" aria-hidden="true">+</span></summary>
-            <div class="faq-body"><p>Төлбөрийг админ баталгаажуулмагц групп шилжүүлэг эсвэл game pass худалдан авалт автоматаар гүйцэтгэгдэж, Robux Roblox дансанд чинь очно.</p></div>
-          </details>
-          <details class="faq-item">
-            <summary><span>Та нар миний нууц үгийг авах уу?</span><span class="faq-icon" aria-hidden="true">+</span></summary>
-            <div class="faq-body"><p>Үгүй. Бид Roblox-ийн албан ёсны OAuth ашигладаг тул нэвтрэх мэдээлэл чинь зөвхөн Roblox дээр л үлдэнэ, бидэнд ирэхгүй.</p></div>
-          </details>
-          <details class="faq-item">
-            <summary><span>Ямар төлбөрийн хэлбэр дэмждэг вэ?</span><span class="faq-icon" aria-hidden="true">+</span></summary>
-            <div class="faq-body"><p>Одоогоор дотоодын банкны шилжүүлгээр төлбөр хийнэ. Захиалга үүсгэсний дараа дансны дугаар болон гүйлгээний утга шууд харагдана. QPay тун удахгүй нэмэгдэнэ.</p></div>
-          </details>
-          <details class="faq-item">
-            <summary><span>Захиалгаа цуцлах боломжтой юу?</span><span class="faq-icon" aria-hidden="true">+</span></summary>
-            <div class="faq-body"><p>Төлбөр баталгаажихаас өмнө захиалгаа цуцлах боломжтой. Асуудал гарвал дэмжлэгтэй холбогдоно уу.</p></div>
-          </details>
-        </div>
-      </section>
-    </div>
   </main>
 
+  <!-- The link columns come in two sets, and only one is ever on screen.
+       Signed out they point at the landing sections; signed in the landing is
+       hidden (see gates.js) and those anchors lead nowhere, so they are
+       swapped for the workspace tabs. The footer used to carry the marketing
+       set unconditionally, which meant five dead links under every signed-in
+       page. -->
   <footer class="site-footer-wide">
     <div class="page footer-grid">
       <div class="footer-brand">
-        <a class="brand" href="/">RBX</a>
-        <p>Roblox-д зориулсан Robux худалдан авалтыг MNT-ээр, автомат бөгөөд аюулгүй болгодог үйлчилгээ.</p>
+        <a class="brand" href="/">
+        <img class="brand-mark" src="/img/logo-mark.png" alt="" width="40" height="40" aria-hidden="true"><span class="brand-word"><span class="brand-rbx">rbx</span><span class="brand-mn">mn</span></span></a>
+        <p>Монголд байгаа хамгийн хямд Robux.</p>
       </div>
-      <div class="footer-col">
-        <span class="footer-heading">Холбоос</span>
-        <a href="#buy">Robux авах</a>
-        <a href="#gift">Бэлгийн карт</a>
-        <a href="#referral">Урилга</a>
-        <a href="#events">Эвент</a>
-      </div>
+
+      <nav class="footer-col" id="footer-nav-service" aria-label="Үйлчилгээ">
+        <span class="footer-heading">Үйлчилгээ</span>
+        <a href="#giftcards">Бэлгийн карт</a>
+        <a href="#invite">Урилга</a>
+        <a href="#login">Нэвтрэх</a>
+      </nav>
+
+      <nav class="footer-col" id="footer-nav-info" aria-label="Мэдээлэл">
+        <span class="footer-heading">Мэдээлэл</span>
+        <a href="#about">Бидний тухай</a>
+        <a href="#faq">Асуулт</a>
+      </nav>
+
+      <!-- data-tab-link rather than a bare #hash: the hash alone switches the
+           tab through tabs.js, but leaves the viewport down here in the
+           footer, which reads as nothing having happened. -->
+      <nav class="footer-col" id="footer-nav-workspace" aria-label="Миний хэсэг" hidden>
+        <span class="footer-heading">Миний хэсэг</span>
+        <a href="#buy" data-tab-link="buy">Robux авах</a>
+        <a href="#orders" data-tab-link="orders">Захиалгууд</a>
+        <a href="#gift" data-tab-link="gift">Бэлгийн карт</a>
+        <a href="#referral" data-tab-link="referral">Урилга</a>
+        <a href="#events" data-tab-link="events">Эвент</a>
+      </nav>
+
       <div class="footer-col">
         <span class="footer-heading">Аюулгүй байдал</span>
         <span class="footer-note">Roblox-ийн албан ёсны OAuth 2.0</span>
         <span class="footer-note">Нууц үг хэзээ ч хадгалдаггүй</span>
-        <span class="footer-note">Гүйлгээ бүрийг гараар баталгаажуулдаг</span>
+        <span class="footer-note">Захиалга бүрийн явц ил тод</span>
       </div>
     </div>
-    <div class="page footer-bottom">
-      <span>© RBX</span>
-      <span>Roblox Corporation-той хамааралгүй, албан бус үйлчилгээ.</span>
-    </div>
   </footer>
+
+  <!-- Any row in Захиалгууд opens into this: the whole record of one
+       purchase, order or gift card, with whatever action is still open on it.
+       A <dialog> so Esc, the backdrop and focus trapping come for free. -->
+  <dialog class="detail-dialog" id="order-detail" aria-labelledby="order-detail-title">
+    <div class="detail-body">
+      <div class="detail-head">
+        <div>
+          <span class="detail-kind" id="order-detail-kind"></span>
+          <h2 class="h3" id="order-detail-title"></h2>
+        </div>
+        <span class="badge" id="order-detail-status"></span>
+      </div>
+      <p class="detail-note" id="order-detail-note" hidden></p>
+      <dl class="detail-list" id="order-detail-list"></dl>
+      <div class="detail-actions">
+        <button class="btn btn-primary" type="button" id="order-detail-action" hidden></button>
+        <button class="btn btn-ghost" type="button" id="order-detail-close">Хаах</button>
+      </div>
+    </div>
+  </dialog>
 
   <!-- Deterrent only, and deliberately not relied on: see the note at the top
        of shield.js. Nothing on this page is safe because the shield is here;

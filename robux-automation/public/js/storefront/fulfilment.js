@@ -1,33 +1,58 @@
 // How this buyer's Robux will actually be delivered.
 //
-// The route is decided by the server from group-membership eligibility, and
-// the buyer has no say in it: group payout carries a platform-imposed
-// membership requirement, so offering it as a free choice would just produce
-// paid orders Roblox refuses to fulfil. Everything here renders that answer.
+// The route is decided by the server and is deliberately never named on
+// screen. A buyer is purchasing Robux; which pipe they arrive down is our
+// plumbing, and every label, badge, countdown and join step that used to
+// describe it has been removed. What is left is the single question the
+// server cannot answer for them — which of their own experiences to use —
+// and it is only asked when there is genuinely a choice.
+//
+// The one prerequisite the buyer has to satisfy in person is handled by
+// openMembershipSetup below, silently.
 
-import { $, showResult, setLoading } from '../common/dom.js';
+import { $ } from '../common/dom.js';
 import { request } from '../common/api.js';
 import { state } from './state.js';
 
+// One tab per browser session at most. A buyer who ignores it should not be
+// handed another on every reload.
+const SETUP_TAB_FLAG = 'rbx.setup-opened';
+
 export function setMethod(method) {
   state.method = method;
-  $('method-group-fields').hidden = method !== 'group';
   $('method-gamepass-fields').hidden = method !== 'gamepass';
-  $('create-order-btn').textContent = method === 'group'
-    ? 'Захиалга үүсгэх'
-    : 'Game Pass-аар захиалах';
+  // The button used to change its wording with the route, which told the
+  // buyer there were two of them. There is one order, so there is one label.
+  $('create-order-btn').textContent = 'Захиалга үүсгэх';
   updateCreateButtonState();
 }
 
 // Why the order cannot be placed right now, or null when it can. Kept as a
 // message rather than a boolean because the button stays clickable.
+//
+// None of these name a delivery route. Each says only what the buyer can
+// actually do about it.
 export function orderBlockedReason() {
   if (state.method !== 'gamepass') return null;
+
+  // The route is closed platform-side. Nothing the buyer does today reopens
+  // it, but the alternative route matures on its own within a couple of
+  // weeks — so the honest instruction is to come back, not to act.
+  if (state.gamepassDisabled) {
+    return 'Энэ аккаунтаар одоогоор захиалга хүлээн авах боломжгүй байна. '
+      + 'Хэдэн өдрийн дараа дахин оролдоно уу — тохиргоо автоматаар бэлэн болно.';
+  }
   if (!state.authorizedUniverseIds.length) {
-    return 'Танд Game Pass үүсгэх тоглоом алга. Доорх группд элсээрэй.';
+    // An empty list means Roblox granted us game-pass:write on no experience.
+    // That is two different situations wearing one face: the buyer owns none,
+    // or — far more common — they own one and did not tick it in the consent
+    // screen's experience picker. Nothing here can tell the cases apart,
+    // because the empty grant is all Roblox tells us.
+    return 'Roblox-д нэвтрэхдээ тоглоомоо сонгоогүй байна. Дахин нэвтэрч, '
+      + 'зөвшөөрөх хуудсан дээр тоглоомоо тэмдэглэнэ үү.';
   }
   if (state.authorizedUniverseIds.length > 1 && !$('gamepass-universe').value) {
-    return 'Аль тоглоом дээр үүсгэхээ сонгоно уу.';
+    return 'Аль тоглоом дээрээ хүлээн авахаа сонгоно уу.';
   }
   return null;
 }
@@ -42,16 +67,18 @@ export function updateCreateButtonState() {
   button.setAttribute('aria-disabled', String(Boolean(blocked)));
 
   const notice = $('gamepass-blocked');
-  const universeBlocked = state.method === 'gamepass' && !state.authorizedUniverseIds.length;
+  const universeBlocked = state.method === 'gamepass'
+    && (state.gamepassDisabled || !state.authorizedUniverseIds.length);
   notice.hidden = !universeBlocked;
   if (universeBlocked) notice.textContent = blocked;
 }
 
-// Populates the Game Pass experience picker. One authorized experience is not
-// a choice, so the server picks it and the field stays hidden; the selector
-// only appears when there is genuinely something to decide.
+// Populates the experience picker. One authorized experience is not a choice,
+// so the server picks it and the field stays hidden; the selector only
+// appears when there is genuinely something to decide.
 function applyGamepassAvailability(gamepass) {
   if (!gamepass) return;
+  state.gamepassDisabled = Boolean(gamepass.disabled);
   state.authorizedUniverseIds = (gamepass.universeIds || []).map(String);
 
   const field = $('gamepass-universe-field');
@@ -74,115 +101,68 @@ function applyGamepassAvailability(gamepass) {
   updateCreateButtonState();
 }
 
-// The exit from the Game Pass route. Joining starts the membership clock, so
-// the sooner a buyer does it the sooner every subsequent order becomes a
-// plain transfer — which is worth stating outright rather than leaving them
-// to infer it from a progress bar.
-function renderRouteUnlock(group, joined) {
-  const unlock = $('route-unlock');
-  unlock.hidden = false;
-  $('route-join-link').href = group.groupUrl || `https://www.roblox.com/groups/${Number(group.groupId)}`;
+// The one step the server genuinely cannot take for the buyer.
+//
+// Roblox has no OAuth scope that lets a site join a group on a user's behalf
+// — that action needs their own session, which we never hold — so the
+// request itself has to come from them. Everything after it is automatic:
+// the bot accepts the request and the clock starts without anyone asking.
+//
+// So the page opens the page that sends it, once, and says nothing. A tab
+// opened outside a user gesture is blocked by most browsers, which is why
+// the blocked case re-arms itself against the buyer's next click rather than
+// failing silently — the fallback is what makes this work at all.
+// `setup` is null unless the server decided this buyer still has that step to
+// take. It carries a URL and nothing else — no id, no name, no membership
+// dates — so there is nothing here to render even by accident.
+function openMembershipSetup(setup) {
+  if (!setup || !setup.url) return;
 
-  $('route-unlock-copy').innerHTML = joined
-    ? `Гишүүнчлэлийн хугацаа тоологдож байна. <strong>${Number(group.daysRemaining)} хоногийн дараа</strong> `
-      + 'Robux шууд шилжих болно.'
-    : 'Одоо элсвэл хугацаа өнөөдрөөс эхэлнэ. '
-      + `<strong>${Number(group.requiredDays)} хоногийн дараа</strong> Robux шууд шилжих болно.`;
+  try {
+    if (sessionStorage.getItem(SETUP_TAB_FLAG)) return;
+    sessionStorage.setItem(SETUP_TAB_FLAG, '1');
+  } catch {
+    // Private mode, or storage switched off. Better to open it once more
+    // than to never open it at all.
+  }
 
-  $('route-join-link').textContent = joined ? 'Группээ нээх ↗' : 'Группд элсэх ↗';
-  $('route-recheck-btn').hidden = joined;
+  // Not window.open(url, '_blank', 'noopener'): with noopener in the feature
+  // string the call returns null even when it succeeds, so the blocked-check
+  // below would fire on every open and hand out a second tab on the next
+  // click. Severing the opener afterwards keeps the guarantee and the
+  // return value.
+  const open = () => {
+    const tab = window.open(setup.url, '_blank');
+    if (tab) tab.opener = null;
+    return tab;
+  };
+  if (open()) return;
+
+  const retry = () => {
+    document.removeEventListener('click', retry, true);
+    document.removeEventListener('keydown', retry, true);
+    open();
+  };
+  document.addEventListener('click', retry, true);
+  document.addEventListener('keydown', retry, true);
 }
 
-export async function loadFulfillmentRoute() {
-  const banner = $('route-banner');
+// `firstRun` is true only for a sign-in that just happened. A session
+// restored on page load is not a login, and opening an unexplained tab at
+// someone who merely refreshed would be hostile.
+export async function loadFulfillmentRoute({ firstRun = false } = {}) {
   try {
     const data = await request('/order/eligibility');
-
     applyGamepassAvailability(data.gamepass);
     setMethod(data.route);
-    banner.hidden = false;
-    $('route-badge').textContent = data.route === 'group' ? 'Группээр' : 'Game Pass';
-    $('route-badge').className = `badge ${data.route === 'group' ? 'badge-active' : 'badge-pending'}`;
-
-    const group = data.group;
-    const progress = $('route-progress');
-
-    if (data.route === 'group') {
-      $('route-explainer').textContent =
-        'Robux группээс шууд шилжинэ.';
-      progress.hidden = true;
-      $('route-unlock').hidden = true;
-    } else if (data.reason === 'membership_too_new' && group) {
-      $('route-explainer').textContent =
-        `Гишүүнчлэл ${group.requiredDays} хоног болоогүй тул одоогоор Game Pass-аар хүргэнэ.`;
-      progress.hidden = false;
-      const percent = Math.min(100, Math.round((group.daysInGroup / group.requiredDays) * 100));
-      $('route-progress-fill').style.width = `${percent}%`;
-      $('route-progress-label').textContent =
-        `${group.daysInGroup} / ${group.requiredDays} хоног · ${group.daysRemaining} хоног үлдлээ`;
-      renderRouteUnlock(group, true);
-    } else if (data.reason === 'not_a_member' && group) {
-      $('route-explainer').textContent =
-        `Game Pass-аар хүргэнэ. Группд элсвэл ${group.requiredDays} хоногийн дараа шууд шилжинэ.`;
-      progress.hidden = false;
-      $('route-progress-fill').style.width = '0%';
-      $('route-progress-label').textContent = `0 / ${group.requiredDays} хоног · Группд элсэхэд эхэлнэ`;
-      renderRouteUnlock(group, false);
-    } else {
-      $('route-explainer').textContent = 'Robux-ийг Game Pass-аар хүргэнэ.';
-      progress.hidden = true;
-      $('route-unlock').hidden = true;
-    }
+    if (firstRun) openMembershipSetup(data.setup);
   } catch {
     // Never block ordering on this — fall back to the route that has no
     // external precondition.
     setMethod('gamepass');
-    banner.hidden = true;
-  }
-}
-
-export async function loadGroupInfo() {
-  try {
-    const data = await request('/group-info');
-    if (!data.groupId) throw new Error();
-    $('group-name-display').textContent = data.groupName || `Групп #${data.groupId}`;
-    $('join-group-link').href = `https://www.roblox.com/groups/${Number(data.groupId)}`;
-  } catch {
-    $('group-name-display').textContent = 'Тохируулагдаагүй байна';
   }
 }
 
 export function initFulfilment() {
-  // "I joined — check again." Hitting /group/membership both re-checks Roblox
-  // and starts the local clock for someone who joined on their own, so this is
-  // the button that makes the wait begin.
-  $('route-recheck-btn').addEventListener('click', async () => {
-    const button = $('route-recheck-btn');
-    setLoading(button, true, 'Шалгаж байна…');
-    try {
-      const data = await request('/group/membership', undefined, 'Шалгаж чадсангүй.');
-
-      if (data.isMember) {
-        showResult(
-          $('route-recheck-result'),
-          data.eligible
-            ? 'Гишүүнчлэл бүрдлээ. Robux шууд шилжих боломжтой боллоо.'
-            : `Гишүүнчлэл баталгаажлаа. Үлдсэн ${data.daysRemaining} хоног.`
-        );
-        await loadFulfillmentRoute();
-      } else {
-        showResult(
-          $('route-recheck-result'),
-          'Гишүүн болоогүй байна. Хүсэлт илгээсэн бол хэдэн минутын дараа дахин шалгана уу.',
-          true
-        );
-      }
-    } catch (error) {
-      showResult($('route-recheck-result'), error.message, true);
-    } finally {
-      setLoading(button, false);
-    }
-  });
-
   $('gamepass-universe').addEventListener('change', updateCreateButtonState);
 }

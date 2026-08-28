@@ -31,11 +31,12 @@
 .stat-strip {
   display: grid;
   margin-bottom: 1.2rem;
-  border: 1px solid var(--border);
+  border: var(--stroke) solid var(--border);
   border-radius: var(--radius);
   grid-template-columns: repeat(4, minmax(0, 1fr));
   overflow: hidden;
-  background: var(--surface);
+  background: var(--bg-soft);
+  box-shadow: 0 var(--lift) 0 #000;
 }
 
 .stat {
@@ -55,51 +56,21 @@
   text-transform: uppercase;
 }
 
+/* The figure, not its label, is what this strip exists for — so it carries
+   the display face at full weight rather than an accent colour. */
 .stat strong {
   display: block;
   margin-top: 0.2rem;
-  color: var(--gold);
+  color: var(--text);
   font-family: var(--display);
-  font-size: 1.25rem;
-}
-
-.price-editor-grid {
-  display: grid;
-  margin-bottom: 1.2rem;
-  gap: 1.1rem;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
-}
-
-.price-preview {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.price-input {
-  position: relative;
-}
-
-.price-input span {
-  position: absolute;
-  right: 0.8rem;
-  bottom: 0.7rem;
-  color: var(--faint);
-  font-size: 0.82rem;
-  font-weight: 600;
-  pointer-events: none;
-}
-
-.price-input input {
-  padding-right: 3.2rem;
-  font-family: var(--mono);
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 details.stub-toggle {
   margin-top: 1rem;
-  border: 1px solid var(--border);
+  border: var(--stroke) solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
 }
@@ -215,14 +186,15 @@ td small {
 .app-dialog {
   width: min(440px, calc(100% - 2rem));
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: var(--stroke) solid var(--border-strong);
   border-radius: var(--radius);
   color: var(--text);
   background: var(--bg-soft);
+  box-shadow: var(--shadow-lg);
 }
 
 .app-dialog::backdrop {
-  background: rgba(6, 6, 7, 0.72);
+  background: rgba(5, 6, 5, 0.75);
 }
 
 .app-dialog-body {
@@ -252,4 +224,56 @@ td small {
 
 .app-dialog-actions .btn {
   flex: 1 1 auto;
+}
+
+/* The sales filter. Dates and search sit on one line on a desktop, which is
+   where reconciliation actually happens; the fields wrap rather than shrink,
+   because a date input squeezed below its content width stops showing the
+   date it holds.
+
+   No rule off the top any more: it used to divide the filter from a summary
+   table above it, and with that table gone the line divided nothing. */
+.sales-filter {
+  margin: 0 0 1rem;
+}
+
+.sales-filter-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.sales-filter-fields .field {
+  margin-bottom: 0;
+  min-width: 150px;
+}
+
+/* The one field worth giving the leftover room to: a username is longer than
+   a date and is the thing most often typed here. */
+.sales-search-field {
+  flex: 1 1 220px;
+}
+
+.sales-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* .list-summary is nowrap because it usually holds "12 / 40". This one is a
+   sentence — the range, the search term and three totals — so it wraps. */
+.sales-section .list-summary {
+  white-space: normal;
+}
+
+/* The queue's search box. Inputs are width:100% by default, which inside a
+   flex toolbar collapses to the width of the placeholder's first word — so
+   this one is given a floor and allowed to take the room the chips leave. */
+.toolbar-search {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.toolbar-search input {
+  min-width: 0;
 }

@@ -3,11 +3,28 @@
 module.exports = (db) => ({
   // Plain INSERT, never OR REPLACE: a duplicate code must fail loudly at the
   // UNIQUE index rather than quietly reassign someone else's code.
-  createReferralCode: (userId, code, callback) => {
+  //
+  // Terms are set at issue time because an admin issues the code — the two
+  // overrides and the usage cap arrive with it rather than being edited on
+  // afterwards. NULL overrides mean "follow the global setting".
+  createReferralCode: (code, callback) => {
     db.run(
-      `INSERT INTO referral_codes (user_id, code) VALUES (?, ?)`,
-      [userId, code],
-      function(err) { callback(err, err ? null : { id: this.lastID, userId, code }); }
+      `INSERT INTO referral_codes
+        (user_id, code, is_influencer, bonus_percent_override,
+         commission_percent_override, max_uses, created_by_admin_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        code.userId,
+        code.code,
+        Boolean(code.isInfluencer),
+        code.bonusPercentOverride ?? null,
+        code.commissionPercentOverride ?? null,
+        code.maxUses ?? 0,
+        code.createdByAdminId ?? null
+      ],
+      function(err) {
+        callback(err, err ? null : { id: this.lastID, userId: code.userId, code: code.code });
+      }
     );
   },
 
@@ -32,21 +49,56 @@ module.exports = (db) => ({
     db.get(`SELECT * FROM referral_codes WHERE id = ?`, [id], callback);
   },
 
-  updateReferralCodeTerms: (id, isInfluencer, bonusOverride, commissionOverride, isActive, callback) => {
+  // Lowering max_uses below the number of customers already bound is allowed
+  // and simply closes the code to new ones; the customers already attributed
+  // keep their terms, because retracting an attribution someone has already
+  // ordered against would rewrite history.
+  updateReferralCodeTerms: (id, terms, callback) => {
     const sql = `UPDATE referral_codes
-      SET is_influencer = ?, bonus_percent_override = ?, commission_percent_override = ?, is_active = ?
+      SET is_influencer = ?, bonus_percent_override = ?, commission_percent_override = ?,
+          max_uses = ?, is_active = ?
       WHERE id = ?`;
-    db.run(sql, [Boolean(isInfluencer), bonusOverride, commissionOverride, Boolean(isActive), id], function(err) {
+    db.run(sql, [
+      Boolean(terms.isInfluencer),
+      terms.bonusPercentOverride,
+      terms.commissionPercentOverride,
+      terms.maxUses,
+      Boolean(terms.isActive),
+      id
+    ], function(err) {
       callback(err, err ? null : { changes: this.changes });
     });
   },
 
-  bindReferralAttribution: (refereeUserId, referralCodeId, referrerUserId, callback) => {
+  // How many customers are bound to a code. The cap is a whole-code budget,
+  // so this is the number it is measured against.
+  countReferralUses: (referralCodeId, callback) => {
+    db.get(
+      `SELECT COUNT(*) AS uses FROM referral_attributions WHERE referral_code_id = ?`,
+      [referralCodeId],
+      (err, row) => callback(err, err ? 0 : Number(row.uses))
+    );
+  },
+
+  // The usage cap is enforced inside the INSERT rather than by counting
+  // first and inserting after. Two customers redeeming the last slot of a
+  // code at the same moment would both pass a separate count — here the
+  // second one inserts zero rows and is told the code is spent.
+  //
+  // maxUses of 0 means uncapped, which is why the guard short-circuits on it.
+  bindReferralAttribution: (refereeUserId, referralCodeId, referrerUserId, maxUses, callback) => {
     db.run(
+      // The inserted values are cast explicitly: in INSERT ... SELECT,
+      // Postgres infers parameter types from the SELECT rather than from the
+      // target columns, and bare placeholders there fail to type-resolve.
       `INSERT INTO referral_attributions (referee_user_id, referral_code_id, referrer_user_id)
-       VALUES (?, ?, ?)`,
-      [refereeUserId, referralCodeId, referrerUserId],
-      function(err) { callback(err, err ? null : { id: this.lastID }); }
+       SELECT ?::integer, ?::integer, ?::integer
+       WHERE ?::integer = 0
+          OR (SELECT COUNT(*) FROM referral_attributions WHERE referral_code_id = ?) < ?::integer`,
+      [refereeUserId, referralCodeId, referrerUserId, maxUses, referralCodeId, maxUses],
+      function(err) {
+        callback(err, err ? null : { id: this.lastID, bound: this.changes > 0 });
+      }
     );
   },
 

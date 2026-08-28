@@ -10,6 +10,7 @@ const TICKET_URL = 'https://auth.roblox.com/v1/authentication-ticket';
 const LOGOUT_URL = 'https://auth.roblox.com/v2/logout';
 const TWO_STEP_URL = 'https://twostepverification.roblox.com/v1/users';
 const CHALLENGE_CONTINUE_URL = 'https://apis.roblox.com/challenge/v1/continue';
+const PURCHASE_URL = 'https://economy.roblox.com/v1/purchases/products';
 
 // Roblox names the challenge type in a response header. Only one of them can
 // be answered without a human in the room.
@@ -244,9 +245,31 @@ class RobloxGroup {
       // Reached only when the verify or continue call itself failed. The
       // original request was still refused at the gate, so this is every bit
       // as never-sent as the checks above.
+      //
+      // Roblox's own words are the only thing that separates the causes here
+      // — a rejected code, a challenge that expired between being issued and
+      // being answered, and a seed for the wrong account all arrive as the
+      // same generic failure otherwise. The retry loop above rethrows on the
+      // second window regardless of status, so even an ordinary wrong code
+      // lands in this branch. Both are carried: the console line for a live
+      // tail, and `response` so the reason is persisted with the order rather
+      // than living only in a log that has already scrolled past.
+      const status = error.response?.status;
+      const body = error.response?.data;
+      console.error(
+        '2FA challenge failed:',
+        status ? `HTTP ${status}` : error.code || 'no response',
+        body ? JSON.stringify(body).slice(0, 400) : error.message
+      );
+
       throw Object.assign(
         new Error('Bot-ийн 2FA баталгаажуулалт амжилтгүй боллоо.'),
-        { code: 'TWO_STEP_FAILED', preflight: true, cause: error }
+        {
+          code: 'TWO_STEP_FAILED',
+          preflight: true,
+          cause: error,
+          response: error.response
+        }
       );
     }
   }
@@ -274,6 +297,22 @@ class RobloxGroup {
       } catch (error) {
         if (error.response?.status !== 403) throw error;
 
+        // A 403 that carries a challenge very often carries a rotated
+        // x-csrf-token as well, and the challenge endpoints reject the old
+        // one outright — before they ever look at the six-digit code. Read
+        // once, up front, so both branches below start from the freshest
+        // token Roblox has given us.
+        //
+        // Ordering mattered here: solving the challenge with the stale token
+        // failed as "XSRF token invalid", which surfaced to the admin as a
+        // 2FA failure blaming the server clock and the authenticator seed —
+        // neither of which was ever wrong.
+        const rotated = error.response?.headers?.['x-csrf-token'];
+        if (rotated) {
+          token = rotated;
+          csrfCache.set(cookieKey(cookie), { token, fetchedAt: Date.now() });
+        }
+
         const challenge = this.readChallenge(error);
         if (challenge && !challengeSolved) {
           challengeHeaders = await this.solveChallenge(challenge, cookie, totpSecret, token);
@@ -281,10 +320,9 @@ class RobloxGroup {
           continue;
         }
 
-        const rotated = error.response?.headers?.['x-csrf-token'];
+        // The token was already adopted above; this branch only decides
+        // whether a plain rotation is worth one more attempt.
         if (rotated && !csrfRetried) {
-          token = rotated;
-          csrfCache.set(cookieKey(cookie), { token, fetchedAt: Date.now() });
           csrfRetried = true;
           continue;
         }
@@ -446,7 +484,7 @@ class RobloxGroup {
 
     if (funds !== null && funds < payable) {
       throw Object.assign(
-        new Error(`Группын үлдэгдэл хүрэлцэхгүй байна (${funds} R$ / ${payable} R$ шаардлагатай).`),
+        new Error(`Группын үлдэгдэл хүрэлцэхгүй байна (${funds} Robux / ${payable} Robux шаардлагатай).`),
         { code: 'INSUFFICIENT_GROUP_FUNDS', preflight: true, available: funds, required: payable }
       );
     }
@@ -462,6 +500,66 @@ class RobloxGroup {
         timeout: REQUEST_TIMEOUT_MS
       }
     ), { totpSecret });
+  }
+
+  // Buys a Game Pass as the bot.
+  //
+  // This exists because a pass created by a buyer often has no page the seller
+  // can open — the web route answers 404 to everyone except the pass's own
+  // creator — so "the admin goes and clicks Buy" is not a step that can be
+  // relied on. Nothing about the purchase needs that page, though: it is the
+  // same call the Roblox client makes behind an in-experience purchase prompt,
+  // which is how games like Pls Donate sell passes nobody ever visits a page
+  // for.
+  //
+  // expectedPrice and expectedSellerId are not decoration. Roblox rejects the
+  // charge if either has changed since we read the listing, which is what
+  // stops a buyer editing their pass to 100,000 Robux between placing the order
+  // and an admin fulfilling it. Both are passed by the caller, from the order
+  // row rather than from the listing, so the check compares our expectation
+  // against Roblox's reality instead of comparing Roblox to itself.
+  static async buyGamePass({ productId, expectedPrice, expectedSellerId, cookie, totpSecret = null }) {
+    const product = Number(productId);
+    const price = Number(expectedPrice);
+    const seller = Number(expectedSellerId);
+
+    if (!Number.isInteger(product) || product < 1) {
+      throw Object.assign(new Error('Game Pass-ийн product ID буруу байна.'), {
+        code: 'INVALID_PRODUCT', preflight: true
+      });
+    }
+    if (!Number.isInteger(price) || price < 1) {
+      throw Object.assign(new Error(`Game Pass-ийн үнэ буруу байна (${expectedPrice}).`), {
+        code: 'INVALID_PRICE', preflight: true
+      });
+    }
+    if (!Number.isInteger(seller) || seller < 1) {
+      throw Object.assign(new Error('Худалдагчийн Roblox ID буруу байна.'), {
+        code: 'INVALID_SELLER', preflight: true
+      });
+    }
+
+    const response = await this.withCsrf(cookie, (csrfToken, challengeHeaders) => axios.post(
+      `${PURCHASE_URL}/${product}`,
+      { expectedCurrency: 1, expectedPrice: price, expectedSellerId: seller },
+      {
+        headers: { ...cookieHeader(cookie), 'X-CSRF-TOKEN': csrfToken, ...challengeHeaders },
+        timeout: REQUEST_TIMEOUT_MS
+      }
+    ), { totpSecret });
+
+    const result = response.data || {};
+
+    // Roblox answers 200 for a refused purchase and names the reason in the
+    // body, so the status code alone would report every failure as a success.
+    if (result.purchased !== true) {
+      throw Object.assign(
+        new Error(`Roblox худалдан авалтыг зөвшөөрсөнгүй: ${result.errorMsg || result.reason || 'тодорхойгүй шалтгаан'}.`),
+        { code: 'PURCHASE_REFUSED', reason: result.reason || null, purchaseResult: result }
+      );
+    }
+
+    return result;
   }
 
   // The group's recent payout ledger, straight from Roblox.

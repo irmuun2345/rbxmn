@@ -1,63 +1,125 @@
 /* ============================================================
-   Buttons, form fields and the file picker — the interactive primitives.
+   Buttons, form fields, filter chips and the file picker — the interactive
+   primitives.
    ============================================================ */
 
-/* ---------- buttons ---------- */
+/* ---------- buttons ----------
+
+   Every button on this site sits on a hard bottom edge and travels down onto
+   it when pressed. That is the one gesture that separates game UI from web
+   UI, it costs a box-shadow and a transform, and it is the reason a control
+   here feels like something you push rather than something you click. The
+   travel distance is --lift, declared once in tokens.css, so a variant can
+   never drift out of register with the rest. */
 
 .btn {
   display: inline-flex;
-  min-height: 44px;
-  border: 1px solid var(--gold-deep);
+  min-height: 48px;
+  border: var(--stroke) solid var(--border-strong);
   border-radius: var(--radius-sm);
-  padding: 0.62rem 1.2rem;
+  padding: 0.62rem 1.25rem;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  color: var(--gold);
-  background: var(--bg-soft);
-  font-family: var(--display);
-  font-size: 0.9rem;
-  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-raise);
+  box-shadow: 0 var(--lift) 0 #000;
+  font-family: var(--body);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   text-decoration: none;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition: background 140ms ease, border-color 140ms ease,
+              color 140ms ease, transform 90ms ease, box-shadow 90ms ease;
 }
 
 .btn:hover {
-  color: #f1e6cf;
-  background: #1a1a1d;
-  border-color: var(--gold);
+  color: var(--text);
+  background: #272d27;
+  border-color: var(--border-strong);
 }
 
+/* Down onto the edge, and the edge disappears — so the button visibly loses
+   its thickness for exactly as long as your finger is on it. */
 .btn:active {
-  background: #0f0f11;
+  transform: translateY(var(--lift));
+  box-shadow: 0 0 0 #000;
 }
 
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.42;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 var(--lift) 0 #000;
 }
 
-/* Every button on this site used to be an outline on near-black, which left
-   no visual answer to "what do I click?" on a page whose whole job is to take
-   an order. Exactly one filled button per panel — the action that advances
-   the purchase — and everything else stays quiet. */
+/* Exactly one filled button per panel — the action that advances the
+   purchase — and everything else stays quiet.
+
+   It is green now, and the legend on it is black. That is not a preference:
+   #00c846 is bright enough that white on it fails AA outright while black
+   clears 9.3:1, so the mark's own construction — neon cut by a heavy black
+   stroke — turns out to be the only accessible way to render it. The halo
+   under the block is the light the logo throws, and this is the one control
+   on the page allowed to cast it. */
 .btn-primary {
-  color: #17140e;
-  background: linear-gradient(180deg, #d4b47c, var(--gold));
-  border-color: var(--gold);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset,
-              0 10px 24px -14px rgba(195, 162, 106, 0.75);
+  color: #000;
+  background: var(--venom);
+  border-color: var(--venom-lit);
+  box-shadow: 0 var(--lift) 0 var(--venom-deep),
+              0 14px 32px -12px rgba(0, 200, 70, 0.55);
+  font-weight: 700;
 }
 
+/* This one *can* hover by lightening, where the old red primary could not:
+   --venom-lit is lighter than the fill, so the black legend gains contrast
+   instead of losing it. The edge grows a pixel with it so the block still
+   reads as rising rather than merely changing colour. */
 .btn-primary:hover {
-  color: #17140e;
-  background: linear-gradient(180deg, #e0c48f, #cfae76);
-  border-color: #e0c48f;
+  color: #000;
+  background: var(--venom-lit);
+  border-color: var(--venom-lit);
+  transform: translateY(-1px);
+  box-shadow: 0 calc(var(--lift) + 1px) 0 var(--venom-deep),
+              0 20px 40px -12px rgba(0, 200, 70, 0.7);
 }
 
 .btn-primary:active {
-  background: var(--gold-deep);
+  background: var(--venom);
+  transform: translateY(var(--lift));
+  box-shadow: 0 0 0 var(--venom-deep);
+}
+
+/* The money button, filled in the red the prices are written in: for an
+   action that spends rather than one that proceeds. Deep enough to carry a
+   white legend at 6.5:1, and deliberately quieter than the green one —
+   on a panel showing both, the green is the one you are meant to press. */
+.btn-blood {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 var(--lift) 0 var(--accent-deep),
+              0 14px 30px -14px rgba(180, 35, 42, 0.75);
+  font-weight: 700;
+}
+
+/* Grows its edge instead of lightening, for the reason the green one does
+   not have to: the white legend clears AA on --accent and on nothing
+   lighter, so brightening the fill would cost the contrast the hover is
+   trying to add. */
+.btn-blood:hover {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent-lit);
+  transform: translateY(-1px);
+  box-shadow: 0 calc(var(--lift) + 1px) 0 var(--accent-deep),
+              0 18px 34px -14px rgba(180, 35, 42, 0.8);
+}
+
+.btn-blood:active {
+  transform: translateY(var(--lift));
+  box-shadow: 0 0 0 var(--accent-deep);
 }
 
 /* Kept clickable on purpose. A greyed-out control states that something is
@@ -69,59 +131,170 @@
   box-shadow: none;
 }
 
+/* Flat by design — a ghost with a 4px edge is not a ghost. */
 .btn-ghost {
-  color: var(--text);
+  color: var(--dim);
   background: transparent;
-  border: 1px solid var(--border);
+  border: var(--stroke) solid var(--border);
+  box-shadow: none;
 }
 
 .btn-ghost:hover {
-  color: var(--gold);
-  background: var(--surface);
+  color: var(--text);
+  background: var(--surface-hover);
   border-color: var(--border-strong);
+}
+
+.btn-ghost:active {
+  transform: translateY(1px);
 }
 
 .btn-danger {
   color: var(--danger);
   background: transparent;
-  border: 1px solid rgba(178, 88, 80, 0.4);
+  border: var(--stroke) solid rgba(255, 122, 107, 0.4);
+  box-shadow: none;
 }
 
 .btn-danger:hover {
+  color: var(--danger);
   background: var(--danger-bg);
+  border-color: rgba(255, 122, 107, 0.65);
 }
 
+.btn-danger:active {
+  transform: translateY(1px);
+}
+
+/* Small buttons ride a proportionally shallower edge, or they look like they
+   are falling off the row they sit in. */
 .btn-sm {
+  min-height: 40px;
+  padding: 0.4rem 0.85rem;
+  box-shadow: 0 var(--lift-sm) 0 #000;
+  font-size: 0.8rem;
+}
+
+.btn-sm:active {
+  transform: translateY(var(--lift-sm));
+}
+
+.btn-sm.btn-primary {
+  box-shadow: 0 var(--lift-sm) 0 var(--venom-deep);
+}
+
+.btn-sm.btn-blood {
+  box-shadow: 0 var(--lift-sm) 0 var(--accent-deep);
+}
+
+.btn-sm.btn-ghost,
+.btn-sm.btn-danger {
+  box-shadow: none;
+}
+
+.btn-lg {
+  min-height: 58px;
+  padding: 0.85rem 1.7rem;
+  border-radius: var(--radius);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* ---------- filter chips ---------- */
+
+/* A row of these sits above any list long enough to need narrowing — the
+   order history, chiefly. Radio semantics, so only one is ever on. */
+.chip-row {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.chip {
+  display: inline-flex;
   min-height: 36px;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.78rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: var(--stroke) solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 0.25rem 0.8rem;
+  color: var(--dim);
+  background: transparent;
+  font-size: 0.81rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.chip:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+/* Outlined and tinted rather than filled. A row of these is four or five
+   blocks wide, and four green fills in a row would out-shout the single
+   green button the page is built around — the chip only has to say which
+   one is on, and an edge does that at a fraction of the volume. */
+.chip[aria-checked="true"] {
+  color: var(--venom-text);
+  background: var(--venom-soft);
+  border-color: var(--venom);
+}
+
+/* The count rides inside the chip: a filter that cannot say how much it will
+   show is a guess, and on an empty bucket it is a dead end you only discover
+   by pressing it. */
+.chip-count {
+  padding: 0 0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-hover);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+
+.chip[aria-checked="true"] .chip-count {
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--venom-text);
+}
+
+.chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ---------- form fields ---------- */
 
 .field {
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
 
 label {
   display: block;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.45rem;
   color: var(--dim);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
+/* Inputs are wells — sunk into the panel rather than floated on it, which is
+   the inverse of the buttons and is what keeps the two apart at a glance. */
 input, textarea, select {
   width: 100%;
-  /* Matches the 44px on .btn — inputs were landing at ~41px, so tapping a
+  /* Matches the 48px on .btn — inputs were landing at ~41px, so tapping a
      field was measurably harder than tapping a button beside it. */
-  min-height: 44px;
-  border: 1px solid var(--border);
+  min-height: 48px;
+  border: var(--stroke) solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.62rem 0.8rem;
+  padding: 0.62rem 0.9rem;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.02);
-  transition: border-color 150ms ease;
+  background: var(--bg-deep);
+  font-weight: 500;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
 textarea {
@@ -134,7 +307,8 @@ input::placeholder, textarea::placeholder {
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--gold-deep);
+  border-color: var(--venom);
+  box-shadow: 0 0 0 4px var(--venom-soft);
   outline: 0;
 }
 
@@ -147,13 +321,33 @@ select option {
   margin-top: 1rem;
 }
 
+/* Search box with a magnifier sitting inside it. */
+.search-field {
+  position: relative;
+}
+
+.search-field input {
+  padding-left: 2.4rem;
+}
+
+.search-field::before {
+  position: absolute;
+  top: 50%;
+  left: 0.9rem;
+  transform: translateY(-50%);
+  color: var(--faint);
+  font-size: 0.9rem;
+  content: "⌕";
+  pointer-events: none;
+}
+
 /* ---------- file picker ---------- */
 
 /* The native control renders an OS-coloured "Choose File" button that cannot
    be restyled, so it sat as a white block in the middle of the dark payment
    panel. The input is visually hidden but kept in the accessibility tree and
    in the tab order — never display:none, which would take it out of both —
-   and the <label> becomes the visible button. */
+   and the label becomes the visible button. */
 .file-field {
   display: grid;
   gap: 0.5rem;
@@ -174,34 +368,34 @@ select option {
 
 .file-button {
   display: flex;
-  min-height: 44px;
+  min-height: 56px;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border: 1px dashed var(--border-strong);
+  border: var(--stroke) dashed var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 0.7rem 1rem;
   margin: 0;
-  color: var(--gold);
-  background: rgba(255, 255, 255, 0.015);
-  font-family: var(--display);
+  color: var(--venom-text);
+  background: var(--venom-soft);
+  font-family: var(--body);
   font-size: 0.88rem;
-  font-weight: 700;
+  font-weight: 600;
   text-align: center;
   cursor: pointer;
-  transition: border-color 150ms ease, background 150ms ease;
+  transition: border-color 140ms ease, background 140ms ease;
 }
 
 .file-button:hover {
-  border-color: var(--gold);
-  background: var(--positive-bg);
+  border-color: var(--venom);
+  background: rgba(0, 200, 70, 0.2);
 }
 
 /* The input is off-screen, so its focus ring would be invisible — mirror it
    onto the label the user can actually see. */
 .file-input:focus-visible + .file-button {
-  outline: 1px solid var(--gold);
-  outline-offset: 2px;
+  outline: 3px solid var(--venom);
+  outline-offset: 3px;
 }
 
 .file-name {

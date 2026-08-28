@@ -76,7 +76,7 @@ function renderGiftCards(giftCards) {
   $('gift-cards-list').innerHTML = giftCards.map((card) => `
     <div class="editable-row">
       <div>
-        <strong>${formatNumber(card.robux_amount)} R$</strong>
+        <strong>${formatNumber(card.robux_amount)} Robux</strong>
         <small>${escapeHtml(card.purchaser_username)} · ${formatMnt(card.price_mnt)} · ${escapeHtml(statusLabel(card.status))}</small>
         ${card.payment_reference ? `<span class="ref-code">${escapeHtml(card.payment_reference)}</span>` : ''}
         ${card.rejection_reason ? `<small class="reject-reason">${escapeHtml(card.rejection_reason)}</small>` : ''}

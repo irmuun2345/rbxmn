@@ -10,38 +10,63 @@ import { request } from '../common/api.js';
 import { state } from './state.js';
 import { updateGateVisibility } from './gates.js';
 import { setAccountMenuOpen } from './account-menu.js';
-import { setMethod, updateCreateButtonState, loadFulfillmentRoute, loadGroupInfo } from './fulfilment.js';
+import { setMethod, updateCreateButtonState, loadFulfillmentRoute } from './fulfilment.js';
 import { loadProfile } from './profile.js';
 import { checkPhoneStatus } from './phone.js';
-import { loadMyGiftCards } from './gift-cards.js';
+import { refreshGiftQuote, resetGiftPanel } from './gift-cards.js';
+import { loadOrders, resetOrders } from './orders.js';
 import { loadReferral } from './referral.js';
 import { resetOrderPanel } from './order.js';
 import { selectTab } from './tabs.js';
 
 // Everything the page can only fetch once a session exists.
-export function revealAuthenticated(username, universeIds = []) {
+export function revealAuthenticated(username, universeIds = [], { land = true } = {}) {
   state.isAuthenticated = true;
   // loadFulfillmentRoute re-states this from the server along with whether a
   // choice is even needed; this is just the earliest we know.
   state.authorizedUniverseIds = universeIds.map(String);
   $('auth-state').textContent = username || 'Холбогдсон';
-  $('auth-state').className = 'badge badge-active';
+  $('auth-state').className = 'badge badge-active login-state';
   $('account-name').textContent = username || 'Аккаунт';
+  $('workspace-greeting').textContent = username ? `Сайн уу, ${username}` : 'Тавтай морил';
 
   updateCreateButtonState();
   updateGateVisibility();
 
-  loadGroupInfo();
-  loadFulfillmentRoute();
+  loadFulfillmentRoute({ firstRun: land });
   loadProfile();
   checkPhoneStatus();
-  loadMyGiftCards();
   loadReferral();
+  // Orders and gift cards are one list now, so this is both of them.
+  loadOrders();
+  // The gift quote reads the level discount loadProfile is fetching; this is
+  // the first draw, and refreshGiftQuote runs again on every keystroke.
+  refreshGiftQuote();
 
-  // The auth card just vanished from above the fold; land the buyer on the
-  // thing that replaced it rather than wherever the page reflowed to.
-  selectTab('buy');
-  $('workspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // The landing page just vanished from under the buyer; put them at the top
+  // of what replaced it rather than wherever the page happened to reflow to.
+  // Skipped when the session was merely restored on load: nothing moved, and
+  // a #tab in the URL is the visitor's own choice of where to be.
+  if (land) {
+    selectTab('buy');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// A session cookie outlives the page that created it, so a visitor who has
+// signed in before should not be shown the sales pitch and asked to do it
+// again. /profile is the cheapest endpoint that requires a session: if it
+// answers, there is one, and its body already carries the username.
+//
+// A 401 is the normal answer for everyone else and means exactly what the
+// page already shows, so it is swallowed rather than surfaced.
+export async function restoreSession() {
+  try {
+    const data = await request('/profile');
+    revealAuthenticated(data.user.username, [], { land: false });
+  } catch {
+    /* not signed in — the landing page is already the right thing to show */
+  }
 }
 
 // Polls until Roblox tells our server the user approved (or refused). Stops
@@ -145,6 +170,10 @@ function initLogout() {
       $('generate-qr-btn').classList.replace('btn-ghost', 'btn-primary');
 
       resetOrderPanel();
+      // The gift panel can be showing the previous account's payment
+      // reference, which is the last thing the next person should see.
+      resetGiftPanel();
+      resetOrders();
       setAccountMenuOpen(false);
       updateGateVisibility();
 
@@ -152,13 +181,12 @@ function initLogout() {
       $('gamepass-universe-field').hidden = true;
       // Logged out, so there's no account to compute a route for.
       setMethod('gamepass');
-      $('route-banner').hidden = true;
-      $('route-unlock').hidden = true;
       $('auth-state').textContent = 'Холбогдоогүй';
-      $('auth-state').className = 'badge';
+      $('auth-state').className = 'badge login-state';
 
+      $('workspace-greeting').textContent = 'Тавтай морил';
       showResult($('qr-result'), 'Аккаунтын холболт саллаа.');
-      $('auth-card').scrollIntoView({ behavior: 'smooth' });
+      $('login').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (error) {
       showResult($('profile-result'), error.message, true);
     }

@@ -8,7 +8,7 @@ import { $, showResult, setLoading } from '../common/dom.js';
 import { request, jsonBody } from '../common/api.js';
 import { state } from './state.js';
 import { updateGateVisibility } from './gates.js';
-import { loadMyGiftCards } from './gift-cards.js';
+import { refreshGiftQuote } from './gift-cards.js';
 
 export async function checkPhoneStatus() {
   try {
@@ -34,7 +34,9 @@ export function initPhoneLink() {
       state.phoneLinked = true;
       updateGateVisibility();
       showResult($('phone-link-result'), 'Утасны дугаар холбогдлоо.');
-      loadMyGiftCards();
+      // The gift panel was gated until a moment ago; draw its quote now that
+      // the buyer can actually see it.
+      refreshGiftQuote();
     } catch (error) {
       showResult($('phone-link-result'), error.message, true);
     } finally {

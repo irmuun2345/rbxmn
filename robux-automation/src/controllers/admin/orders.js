@@ -7,6 +7,57 @@ const { statusLabel } = require('../../services/order-status');
 const orders = require('../../services/orders');
 const { ACTIONS, recordAdminAction } = require('../../services/audit');
 
+// The link an admin follows to buy the pass.
+//
+// It points at the experience, not at the pass. Both work, but they fail
+// differently when the admin's browser is not signed in to roblox.com:
+// /game-pass/<id> answers a bare 404 — true of any pass, including ones large
+// games actively sell — while the experience page renders, so a stale session
+// looks like a broken link in the first case and like a normal page in the
+// second. Roblox redirects /games/<id> to the slugged URL on its own, so the
+// bare id is enough.
+//
+// No #!/store fragment: that tab syntax is not in the page Roblox serves
+// today. The admin lands on the experience and opens Store there.
+//
+// Rows with no universe recorded — only legacy orders, since every order the
+// current code creates stores one — keep the per-pass URL. It is a poor link,
+// but it carries the id, and there is nothing better to point them at.
+function purchaseUrlFor(rootPlaceId, gamePassId) {
+  return rootPlaceId
+    ? `https://www.roblox.com/games/${rootPlaceId}`
+    : `https://www.roblox.com/game-pass/${gamePassId}`;
+}
+
+// A date the client can express and Postgres can compare. Anything else —
+// a half-typed box, a stray word, an attempt at SQL — becomes "no bound"
+// rather than an error, because a filter is a question and a malformed one
+// just means the admin is still typing.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function dateParam(value) {
+  const text = String(value || '').trim();
+  return ISO_DATE.test(text) ? text : null;
+}
+
+// Long enough for a username or a reference code, short enough that nobody
+// pastes a document into it. ILIKE on a huge string is a slow scan for a
+// result that could never match anything.
+const MAX_SEARCH = 64;
+const PAGE_SIZE = 50;
+const MAX_PAGE = 200;
+
+function searchParam(value) {
+  const text = String(value || '').trim().slice(0, MAX_SEARCH);
+  return text ? text : null;
+}
+
+function pageParam(value, fallback, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(Math.max(Math.trunc(number), 0), max);
+}
+
 module.exports = {
   async getOrders(req, res) {
     try {
@@ -17,18 +68,141 @@ module.exports = {
         });
       });
 
+      // Resolved here rather than stored on the order: a root place is
+      // derived data that Roblox owns, and one batched lookup per queue load
+      // is cheaper than a column that can drift out of date.
+      let rootPlaceIds = new Map();
+      const universeIds = orders
+        .filter((order) => order.delivery_method !== 'group' && order.universe_id)
+        .map((order) => order.universe_id);
+
+      if (universeIds.length) {
+        try {
+          rootPlaceIds = await this.RobloxAuth.getRootPlaceIds(universeIds);
+        } catch (error) {
+          // A Roblox outage must not empty the admin queue. Every row falls
+          // back to the per-pass URL and the rest of the page still works.
+          console.error('Root place lookup failed:', error.message);
+        }
+      }
+
       res.json({
         success: true,
         orders: orders.map((order) => ({
           ...order,
           purchaseUrl: order.delivery_method === 'group'
             ? null
-            : `https://www.roblox.com/game-pass/${order.roblox_gamepass_id}`
+            : purchaseUrlFor(rootPlaceIds.get(String(order.universe_id)), order.roblox_gamepass_id)
         }))
       });
     } catch (error) {
       console.error('Get purchase orders error:', error);
       res.status(500).json({ success: false, error: 'Захиалгын дарааллыг авч чадсангүй.' });
+    }
+  },
+
+  // Sales totals for the dashboard. Read-only, and deliberately separate
+  // from getOrders: the queue only carries what still needs working, while
+  // these totals span every completed order back to the first one.
+  //
+  // Postgres returns COUNT and SUM over integers as bigint, which pg hands
+  // back as strings — Number() here so the client never renders "12" + "3".
+  async getOrderStats(req, res) {
+    try {
+      const row = await new Promise((resolve, reject) => {
+        this.dbHelpers.getOrderStats((error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        });
+      });
+
+      const period = (prefix) => ({
+        orders: Number(row?.[`${prefix}_orders`] || 0),
+        robux: Number(row?.[`${prefix}_robux`] || 0),
+        mnt: Number(row?.[`${prefix}_mnt`] || 0)
+      });
+
+      res.json({
+        success: true,
+        stats: {
+          today: period('today'),
+          yesterday: period('yesterday'),
+          week: period('week'),
+          month: period('month'),
+          lastMonth: period('last_month'),
+          total: period('total')
+        },
+        // The dates each of those periods covers, resolved by Postgres in
+        // Ulaanbaatar time. The dashboard's filter presets are set from
+        // these rather than from the browser's clock, which belongs to
+        // whatever machine the admin happens to be sitting at.
+        periods: {
+          today: { from: row?.today_date || null, to: row?.today_date || null },
+          yesterday: { from: row?.yesterday_date || null, to: row?.yesterday_date || null },
+          week: { from: row?.week_start || null, to: row?.today_date || null },
+          month: { from: row?.month_start || null, to: row?.today_date || null },
+          lastMonth: { from: row?.last_month_start || null, to: row?.last_month_end || null },
+          total: { from: null, to: null }
+        }
+      });
+    } catch (error) {
+      console.error('Get order stats error:', error);
+      res.status(500).json({ success: false, error: 'Борлуулалтын тоог авч чадсангүй.' });
+    }
+  },
+
+  // Completed sales, filtered. Totals and rows come from the same source in
+  // the repository, so the figure at the top always describes the list below
+  // it — including the orders past the end of the page.
+  //
+  // One more row than asked for is fetched, purely to answer "is there
+  // another page?" without a second COUNT over the same filter.
+  async getSalesSearch(req, res) {
+    const filters = {
+      from: dateParam(req.query.from),
+      to: dateParam(req.query.to),
+      search: searchParam(req.query.search)
+    };
+    const limit = pageParam(req.query.limit, PAGE_SIZE, MAX_PAGE) || PAGE_SIZE;
+    const offset = pageParam(req.query.offset, 0, Number.MAX_SAFE_INTEGER);
+
+    try {
+      const [totals, rows] = await Promise.all([
+        new Promise((resolve, reject) => {
+          this.dbHelpers.getSalesTotals(filters, (error, row) => (error ? reject(error) : resolve(row)));
+        }),
+        new Promise((resolve, reject) => {
+          this.dbHelpers.searchSales(filters, limit + 1, offset, (error, result) => (
+            error ? reject(error) : resolve(result)
+          ));
+        })
+      ]);
+
+      const page = rows.slice(0, limit);
+
+      res.json({
+        success: true,
+        filters,
+        totals: {
+          orders: Number(totals?.orders || 0),
+          robux: Number(totals?.robux || 0),
+          mnt: Number(totals?.mnt || 0)
+        },
+        hasMore: rows.length > limit,
+        sales: page.map((row) => ({
+          id: Number(row.id),
+          username: row.username,
+          robloxId: String(row.roblox_id),
+          paymentReference: row.payment_reference,
+          deliveryMethod: row.delivery_method,
+          robux: Number(row.robux),
+          mnt: Number(row.mnt),
+          completedAt: row.completed_at
+        }))
+      });
+    } catch (error) {
+      console.error('Sales search error:', error);
+      res.status(500).json({ success: false, error: 'Борлуулалтыг хайж чадсангүй.' });
     }
   },
 
@@ -73,12 +247,40 @@ module.exports = {
         throw verifyError;
       }
 
+      // Not owning it yet is the ordinary case rather than a failure. Buying
+      // the pass used to be a manual step — an admin opening its page and
+      // clicking through — which turns out to be a step nobody could take:
+      // Roblox serves a pass page only to the account that created it, so the
+      // seller sees 404 no matter what. The purchase never needed that page.
+      // The bot buys it here through the same call the Roblox client makes for
+      // an in-experience purchase prompt.
+      let purchase = null;
       if (!verification.owned) {
-        await orders.releaseFulfillmentClaim(this.dbHelpers, orderId, null);
-        return res.status(409).json({
-          success: false,
-          error: 'Seller аккаунт энэ Game Pass-ийг хараахан эзэмшээгүй байна.'
-        });
+        try {
+          purchase = await this.purchaseGamePassForOrder(order);
+        } catch (purchaseError) {
+          await orders.releaseFulfillmentClaim(this.dbHelpers, orderId, purchaseError.message);
+          console.error('Game pass purchase failed:', purchaseError.response?.data || purchaseError.message);
+          return res.status(purchaseError.preflight ? 409 : 502).json({
+            success: false,
+            error: purchaseError.message
+          });
+        }
+
+        // Ownership stays the thing that completes an order. Roblox accepting
+        // the charge is a claim about a payment; the inventory is the delivery.
+        // Closing the order on the first without the second would mark Robux
+        // delivered on the strength of a promise.
+        verification = await this.RobloxAuth.verifySellerOwnsGamePass(order.roblox_gamepass_id);
+        if (!verification.owned) {
+          await orders.releaseFulfillmentClaim(
+            this.dbHelpers, orderId, 'Purchase succeeded but the pass is not in the inventory.'
+          );
+          return res.status(502).json({
+            success: false,
+            error: 'Худалдан авалт амжилттай гэж хариулсан ч Roblox inventory дээр харагдахгүй байна. Түр хүлээгээд дахин шалгана уу.'
+          });
+        }
       }
 
       await orders.markCompleted(this.dbHelpers, orderId);
@@ -91,14 +293,20 @@ module.exports = {
           gamePassId: order.roblox_gamepass_id,
           deliveredRobux: order.delivered_robux || order.price,
           verifiedVia: 'inventory_api',
-          sellerUserId: verification.sellerUserId
+          sellerUserId: verification.sellerUserId,
+          // Whether this run spent Robux, and what Roblox charged for it.
+          purchasedNow: Boolean(purchase),
+          robuxSpent: purchase ? Number(order.listed_price) : 0
         }
       });
 
       res.json({
         success: true,
-        message: 'Roblox inventory баталгаажлаа. Захиалга дууссан.',
-        sellerUserId: verification.sellerUserId
+        message: purchase
+          ? 'Game Pass-ийг bot аккаунтаар худалдаж авлаа. Захиалга дууссан.'
+          : 'Roblox inventory баталгаажлаа. Захиалга дууссан.',
+        sellerUserId: verification.sellerUserId,
+        purchasedNow: Boolean(purchase)
       });
     } catch (error) {
       if (error.code !== 'ROBLOX_INVENTORY_NOT_CONFIGURED') {
@@ -111,6 +319,60 @@ module.exports = {
           : 'Roblox inventory шалгаж чадсангүй. Дахин оролдоно уу.'
       });
     }
+  },
+
+  // Buys the pass this order is waiting on, with the seller bot's credential.
+  //
+  // Every guard here answers the same question: is the bot about to spend its
+  // Robux on exactly the listing this order was priced against? The pass has
+  // to belong to the buyer named on the order, and it has to still cost what
+  // the order recorded — otherwise a buyer could raise their pass price after
+  // ordering, or a tampered row could aim the bot's balance at any creator on
+  // Roblox. Roblox re-checks both server-side from the values sent with the
+  // charge; these checks exist so a mismatch is refused here, with a message
+  // that says which fact moved.
+  async purchaseGamePassForOrder(order) {
+    const bot = await new Promise((resolve, reject) => {
+      this.dbHelpers.getActiveSellerBot((error, row) => (error ? reject(error) : resolve(row)));
+    });
+    if (!bot?.cookie) {
+      throw Object.assign(
+        new Error('Seller bot аккаунт тохируулагдаагүй тул худалдан авалт хийх боломжгүй.'),
+        { preflight: true }
+      );
+    }
+
+    const withUser = await orders.getOrderWithUser(this.dbHelpers, order.id);
+    const product = await this.RobloxAuth.getGamePassProductInfo(order.roblox_gamepass_id);
+
+    if (!product.isForSale) {
+      throw Object.assign(
+        new Error('Энэ Game Pass одоогоор худалдаанд байхгүй байна.'),
+        { preflight: true }
+      );
+    }
+    if (product.sellerId !== Number(withUser?.roblox_id)) {
+      throw Object.assign(
+        new Error('Game Pass захиалагчийн Roblox аккаунтынх биш байна.'),
+        { preflight: true }
+      );
+    }
+    if (product.priceInRobux !== Number(order.listed_price)) {
+      throw Object.assign(
+        new Error(
+          `Game Pass-ийн үнэ өөрчлөгдсөн байна (Roblox: ${product.priceInRobux} Robux, захиалга: ${order.listed_price} Robux).`
+        ),
+        { preflight: true }
+      );
+    }
+
+    return RobloxGroup.buyGamePass({
+      productId: product.productId,
+      expectedPrice: product.priceInRobux,
+      expectedSellerId: product.sellerId,
+      cookie: bot.cookie,
+      totpSecret: bot.totp_secret
+    });
   },
 
   async markOrderPaymentReceived(req, res) {

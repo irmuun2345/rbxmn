@@ -35,3 +35,91 @@ export function setLoading(button, loading, label = 'Түр хүлээнэ үү�
     button.textContent = button.dataset.label || button.textContent;
   }
 }
+
+/* ============================================================
+   List states
+
+   A list that fetches can be in one of four states, and for most of this
+   site's life it rendered three of them as the same grey sentence: "Ачаалж
+   байна…", "…алга" and "…ачаалж чадсангүй" differed only in wording, sat in
+   the same faint grey, and none of the three offered a way forward. A buyer
+   who could not tell a genuinely empty gift-card list from a request that
+   had failed had no reason to reload, and no button to do it with.
+
+   The three renderers below are the whole vocabulary. Every list on the
+   storefront now uses them, so the states stay consistent between features
+   that are otherwise unrelated.
+   ============================================================ */
+
+/**
+ * Grey pulsing placeholders roughly the shape of the rows that are coming.
+ * Sized to the real content so the list does not jump when it arrives.
+ *
+ * @param {HTMLElement} element
+ * @param {{rows?: number, variant?: 'row'|'tile'}} [options]
+ */
+export function renderLoading(element, { rows = 3, variant = 'row' } = {}) {
+  if (!element) return;
+  const shape = variant === 'tile' ? 'skeleton-tile' : 'skeleton-row';
+  element.innerHTML = `
+    <div class="skeleton-list" aria-hidden="true">
+      ${Array.from({ length: rows }, () => `<div class="skeleton ${shape}"></div>`).join('')}
+    </div>
+    <span class="sr-only" role="status">Ачаалж байна…</span>`;
+}
+
+/**
+ * Nothing to show, and that is the correct answer. Takes an optional action
+ * so an empty list can point at the thing that would fill it.
+ *
+ * @param {HTMLElement} element
+ * @param {{icon?: string, title: string, body?: string,
+ *          action?: {label: string, onClick: () => void}, inline?: boolean}} options
+ */
+export function renderEmpty(element, { icon = '◇', title, body = '', action, inline = false } = {}) {
+  if (!element) return;
+  element.innerHTML = `
+    <div class="state${inline ? ' state-inline' : ''}">
+      <span class="state-icon" aria-hidden="true">${escapeHtml(icon)}</span>
+      <span class="state-title">${escapeHtml(title)}</span>
+      ${body ? `<p class="state-body">${escapeHtml(body)}</p>` : ''}
+      ${action ? '<button class="btn btn-ghost btn-sm" type="button" data-state-action></button>' : ''}
+    </div>`;
+  bindAction(element, action);
+}
+
+/**
+ * The request failed. Deliberately *not* dressed as an empty list: it is a
+ * different fact about the world, and unlike an empty list it is worth
+ * pressing a button about.
+ *
+ * @param {HTMLElement} element
+ * @param {{title?: string, body?: string, retry?: () => void, inline?: boolean}} options
+ */
+export function renderError(element, {
+  title = 'Ачаалж чадсангүй',
+  body = 'Холболтоо шалгаад дахин оролдоно уу.',
+  retry,
+  inline = false
+} = {}) {
+  if (!element) return;
+  element.innerHTML = `
+    <div class="state state-error${inline ? ' state-inline' : ''}" role="alert">
+      <span class="state-icon" aria-hidden="true">!</span>
+      <span class="state-title">${escapeHtml(title)}</span>
+      ${body ? `<p class="state-body">${escapeHtml(body)}</p>` : ''}
+      ${retry ? '<button class="btn btn-ghost btn-sm" type="button" data-state-action></button>' : ''}
+    </div>`;
+  bindAction(element, retry && { label: 'Дахин оролдох', onClick: retry });
+}
+
+// The button inside a state is wired directly rather than through a delegated
+// click handler: these renderers are called from a dozen places and the
+// callback is different every time, so the handler belongs with the node.
+function bindAction(element, action) {
+  if (!action) return;
+  const button = element.querySelector('[data-state-action]');
+  if (!button) return;
+  button.textContent = action.label;
+  button.addEventListener('click', action.onClick);
+}

@@ -8,16 +8,38 @@
 
 .login-shell {
   display: grid;
+  /* See body in tokens.css: svh is the address-bar-visible height, so the
+     card is centred in what is on screen rather than in a taller viewport
+     the phone is not currently showing. */
   min-height: 100vh;
+  min-height: 100svh;
   place-items: center;
+  padding: 1.25rem;
 }
 
+/* Capped blood-into-neon, the way the storefront's sign-in card is — the two
+   are the only doors into the site and should read as the same kind of
+   thing, even though only one of them is for you. */
 .login-card {
+  position: relative;
+  overflow: hidden;
   width: min(400px, 100%);
   padding: 2rem;
-  border: 1px solid var(--border-strong);
+  border: var(--stroke) solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--bg-soft);
+  box-shadow: var(--shadow-lg);
+}
+
+.login-card::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent) 42%, var(--venom) 58%, var(--venom) 100%);
+  box-shadow: 0 0 20px -2px rgba(0, 200, 70, 0.45);
+  content: "";
 }
 
 .login-card .brand {
@@ -39,5 +61,5 @@
 }
 
 .back-link:hover {
-  color: var(--gold);
+  color: var(--venom-text);
 }

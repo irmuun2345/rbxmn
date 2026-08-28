@@ -68,11 +68,23 @@ export function formatDateTime(date) {
   return `${formatDate(date)}, ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-// SQLite stores timestamps as UTC without a zone marker, so the 'Z' has to be
+// SQLite stored timestamps as UTC without a zone marker, so the 'Z' has to be
 // appended before parsing or the browser reads them as local time and every
 // admin timestamp is off by the timezone offset.
+//
+// Postgres does not: its TIMESTAMPTZ columns arrive as Date objects that
+// JSON-serialise to a full ISO string, already carrying 'Z' or a +hh:mm
+// offset. Appending a second 'Z' to one of those yields an unparseable string
+// and prints "NaN". So the marker is added only when the value has none.
+export function parseStoredDate(stored) {
+  if (stored instanceof Date) return stored;
+  const text = String(stored ?? '');
+  const zoned = /(?:Z|[+-]\d{2}:?\d{2})$/.test(text);
+  return new Date(zoned ? text : `${text}Z`);
+}
+
 export function formatStoredDateTime(stored) {
-  return formatDateTime(new Date(`${stored}Z`));
+  return formatDateTime(parseStoredDate(stored));
 }
 
 // Kept as its own name because the events list reads as a range.

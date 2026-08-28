@@ -1,4 +1,5 @@
 const { checkEligibility } = require('../services/group-eligibility');
+const { isGamePassRouteEnabled } = require('../services/gamepass-route');
 
 // The buyer-facing side of the membership clock. Its whole reason for
 // existing is that the 14-day requirement is unsatisfiable on demand: someone
@@ -27,6 +28,19 @@ class GroupController {
   // means no choice at all — the server picks it — so the client should not
   // render a selector for it.
   describeGamepassAvailability(req) {
+    // Closed at the platform's end, not ours — see services/gamepass-route.js.
+    // Reported as an explicit state rather than an empty universe list, because
+    // "you granted us no experience" and "this route no longer exists" need
+    // different things from the buyer.
+    if (!isGamePassRouteEnabled()) {
+      return {
+        available: false,
+        needsUniverseChoice: false,
+        universeIds: [],
+        disabled: true
+      };
+    }
+
     const universeIds = (req.session.authorizedUniverseIds || []).map(String);
     return {
       available: universeIds.length > 0,
@@ -42,7 +56,10 @@ class GroupController {
     try {
       const groupId = await this.getSettingValue('group_id');
       if (!groupId) {
-        return res.status(503).json({ success: false, error: 'Групп одоогоор тохируулагдаагүй байна.' });
+        return res.status(503).json({
+          success: false,
+          error: 'Үйлчилгээ түр хугацаанд боломжгүй байна. Дэмжлэгтэй холбогдоно уу.'
+        });
       }
 
       const user = await this.getUser(req.session.userId);
@@ -52,17 +69,21 @@ class GroupController {
 
       const eligibility = await checkEligibility(this.dbHelpers, user, groupId);
 
+      // The id and the URL used to be echoed here unconditionally, to every
+      // signed-in caller, whether or not they had anything to do with them.
+      // The countdown is the only part of this a buyer has a use for.
       res.json({
         success: true,
-        groupId,
-        groupUrl: `https://www.roblox.com/groups/${groupId}`,
-        ...eligibility
+        isMember: eligibility.isMember,
+        eligible: eligibility.eligible,
+        requiredDays: eligibility.requiredDays,
+        daysRemaining: eligibility.daysRemaining
       });
     } catch (error) {
       console.error('Get group membership error:', error);
       res.status(502).json({
         success: false,
-        error: 'Группын гишүүнчлэлийг шалгаж чадсангүй. Дахин оролдоно уу.'
+        error: 'Аккаунтын төлөв шалгаж чадсангүй. Дахин оролдоно уу.'
       });
     }
   }
@@ -94,22 +115,26 @@ class GroupController {
           success: true,
           route: 'gamepass',
           reason: 'group_not_configured',
-          group: null,
+          setup: null,
           gamepass
         });
       }
 
       const eligibility = await checkEligibility(this.dbHelpers, user, groupId);
 
+      // The whole eligibility record used to be handed to the browser under a
+      // `group` key — id, URL, join date, how we learned the join date — on
+      // every page load, for every buyer, member or not. All the client can
+      // actually do with any of it is open the join page once, and only
+      // someone who is not a member yet needs even that. So that is the only
+      // case in which a URL is sent, and nothing else about the group ever is.
       res.json({
         success: true,
         route: eligibility.eligible ? 'group' : 'gamepass',
         reason: eligibility.eligible ? 'eligible_for_group' : eligibility.reason,
-        group: {
-          groupId,
-          groupUrl: `https://www.roblox.com/groups/${groupId}`,
-          ...eligibility
-        },
+        setup: eligibility.isMember
+          ? null
+          : { url: `https://www.roblox.com/groups/${groupId}` },
         gamepass
       });
     } catch (error) {
@@ -120,7 +145,7 @@ class GroupController {
         success: true,
         route: 'gamepass',
         reason: 'eligibility_check_failed',
-        group: null
+        setup: null
       });
     }
   }

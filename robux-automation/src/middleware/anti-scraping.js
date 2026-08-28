@@ -52,10 +52,15 @@ function isKnownScraper(req) {
 }
 
 // A browser always sends a User-Agent. An empty or absurdly short one means
-// something hand-rolled, and there is no customer behind it.
+// something hand-rolled — unless the request also carries Fetch Metadata
+// saying it came from our own page, which no hand-rolled client bothers
+// with and which a stripping proxy usually leaves alone. That combination
+// is a customer whose UA was scrubbed on the way out, so it is forgiven:
+// refusing it would load the storefront and then leave it empty.
 function hasImplausibleUserAgent(req) {
   const ua = userAgentOf(req);
-  return ua.length < 12;
+  if (ua.length >= 12) return false;
+  return req.get('sec-fetch-site') !== 'same-origin';
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +95,23 @@ function isForeignOrigin(req) {
   }
 }
 
+// Does this request carry the headers only a real browser engine sends?
+//
+// Fetch Metadata is set by the browser itself and cannot be forged from page
+// JavaScript, and an Accept naming text/html is what a navigation asks for.
+// Neither is something curl or python-requests sends by default.
+//
+// This exists because the User-Agent is not ours to trust: antivirus HTTPS
+// scanning, school and office proxies, and some VPN apps rewrite or strip it
+// on the way through, and a customer behind one of those was being handed a
+// 403 on the storefront itself. Header shape survives that; the UA does not.
+function looksLikeBrowserRequest(req) {
+  if (req.get('sec-fetch-dest') || req.get('sec-fetch-mode') || req.get('sec-fetch-site')) {
+    return true;
+  }
+  return String(req.get('accept') || '').includes('text/html');
+}
+
 function denyScrape(res, reason) {
   return res.status(403).json({
     success: false,
@@ -105,8 +127,16 @@ function denyScrape(res, reason) {
 // Applied site-wide. Blocks self-identifying tooling before it reaches any
 // route, static asset included — mirroring the HTML is the cheapest scrape
 // there is.
+//
+// The User-Agent alone is not enough to refuse on here. A rewritten UA is
+// something a real customer trips through no fault of their own, and the
+// cost of a false positive at this layer is the whole storefront going dark
+// for them. So a scraper UA is only refused when nothing else about the
+// request looks like a browser either. Anything that gets through on that
+// benefit of the doubt still meets the full check on the JSON API below,
+// which is the half worth mirroring.
 function blockKnownScrapers(req, res, next) {
-  if (isKnownScraper(req)) {
+  if (isKnownScraper(req) && !looksLikeBrowserRequest(req)) {
     return denyScrape(res, 'AUTOMATED_CLIENT');
   }
   next();
@@ -117,6 +147,13 @@ function blockKnownScrapers(req, res, next) {
 // price list — and unlike the HTML they have no reason to be read by anything
 // but our own front end.
 function requireBrowserContext(req, res, next) {
+  // Held here rather than site-wide: headless Chrome and the scripted
+  // browsers announce themselves in the UA, and letting them read the price
+  // list is the one thing this file exists to prevent. On an HTML page the
+  // same UA now passes, because there a false positive costs a customer.
+  if (isKnownScraper(req)) {
+    return denyScrape(res, 'AUTOMATED_CLIENT');
+  }
   if (isAllowedCrawler(req)) {
     // A crawler has no business reading the JSON API. Refuse politely
     // instead of feeding it data it would then cache and republish.

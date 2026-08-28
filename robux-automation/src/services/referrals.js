@@ -21,9 +21,56 @@ const CODE_MAX_LENGTH = 8;
 // Words that would let a code impersonate the service itself, or collide
 // with how we label our own identifiers elsewhere.
 const RESERVED_CODES = new Set([
-  'RBX', 'GIFT', 'ADMIN', 'ROOT', 'SYSTEM', 'SUPPORT', 'OFFICIAL', 'HELP',
+  'RBX', 'RBXMN', 'GIFT', 'ADMIN', 'ROOT', 'SYSTEM', 'SUPPORT', 'OFFICIAL', 'HELP',
   'NULL', 'NONE', 'TEST', 'ROBUX', 'FREE', 'BONUS'
 ]);
+
+// Both halves of the programme — the customer's bonus and the creator's
+// commission — are paid out of the margin on the order, so the band they may
+// be set to is deliberately narrow. 0 is allowed and means that half is
+// switched off; anything above 0 must land between 1% and 5%.
+const PERCENT_MIN = 1;
+const PERCENT_MAX = 5;
+
+// Validates a percentage an admin typed. Returns null for "no value", which
+// a per-code override reads as "follow the global setting" — distinct from 0,
+// which means "this code pays nothing".
+function normalisePercent(value, label, { allowNull = true } = {}) {
+  if (value === null || value === undefined || value === '') {
+    if (allowNull) return null;
+    throw fail(`${label} оруулна уу.`, 'PERCENT_REQUIRED');
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw fail(`${label} тоо байх ёстой.`, 'PERCENT_INVALID');
+  }
+  if (parsed === 0) return 0;
+  if (parsed < PERCENT_MIN || parsed > PERCENT_MAX) {
+    throw fail(
+      `${label} ${PERCENT_MIN}-${PERCENT_MAX}% хооронд байна (0 = унтраасан).`,
+      'PERCENT_RANGE'
+    );
+  }
+  return parsed;
+}
+
+// Holds a stored percentage inside the band without rejecting it. Used on
+// read, where throwing would take the storefront down over a stale setting.
+function clampToBand(percent) {
+  if (percent <= 0) return 0;
+  return Math.min(Math.max(percent, PERCENT_MIN), PERCENT_MAX);
+}
+
+// The cap on how many customers may ever bind a code. 0 is uncapped.
+function normaliseMaxUses(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw fail('Ашиглах тоог 0 буюу түүнээс их бүхэл тоогоор оруулна уу. (0 = хязгааргүй)', 'MAX_USES_INVALID');
+  }
+  return parsed;
+}
 
 function getSettingValue(dbHelpers, key, fallback = '') {
   return new Promise((resolve, reject) => {
@@ -59,8 +106,11 @@ async function getReferralSettings(dbHelpers) {
 
   return {
     enabled: enabled === '1',
-    bonusPercent: Number(bonusPercent) || 0,
-    commissionPercent: Number(commissionPercent) || 0,
+    // Clamped on the way out, not only on the way in. A value stored before
+    // the 1–5% band existed would otherwise keep paying its old rate on every
+    // order until someone happened to re-save the settings form.
+    bonusPercent: clampToBand(Number(bonusPercent) || 0),
+    commissionPercent: clampToBand(Number(commissionPercent) || 0),
     bonusScope: bonusScope === 'first_order' ? 'first_order' : 'every_order',
     maxBonusRobux: Number(maxBonusRobux) || 0,
     newCustomersOnly: newCustomersOnly === '1',
@@ -99,18 +149,43 @@ function normaliseCode(raw) {
 // beforehand would leave a race between the check and the insert; letting the
 // constraint decide cannot.
 async function createCodeForUser(dbHelpers, userId, rawCode) {
+  // A self-claimed code carries no negotiated terms: no usage cap and no
+  // overrides, so it follows the global settings. Only an admin can set
+  // those, via issueCodeForOwner.
+  return issueCodeForOwner(dbHelpers, { ownerUserId: userId, rawCode });
+}
+
+// Issues a code to an account, with the terms the admin negotiated for it.
+//
+// Two things can go wrong and both are handled by the database rather than by
+// checking first: the owner already has a code (UNIQUE user_id) and the code
+// is already taken (UNIQUE code). Checking beforehand would leave a race
+// between the check and the insert; letting the constraint decide cannot.
+async function issueCodeForOwner(dbHelpers, {
+  ownerUserId, rawCode, maxUses, bonusPercent, commissionPercent,
+  isInfluencer = false, adminId = null
+}) {
   const code = normaliseCode(rawCode);
+  const record = {
+    userId: ownerUserId,
+    code,
+    isInfluencer,
+    bonusPercentOverride: normalisePercent(bonusPercent, 'Урамшуулал'),
+    commissionPercentOverride: normalisePercent(commissionPercent, 'Шимтгэл'),
+    maxUses: normaliseMaxUses(maxUses),
+    createdByAdminId: adminId
+  };
 
   try {
-    const created = await promisify(dbHelpers, 'createReferralCode', userId, code);
-    return { id: created.id, code };
+    const created = await promisify(dbHelpers, 'createReferralCode', record);
+    return { id: created.id, code, maxUses: record.maxUses };
   } catch (error) {
     if (isUniqueViolation(error)) {
-      // Which constraint tripped decides what the user is told.
-      const existing = await promisify(dbHelpers, 'getReferralCodeByUserId', userId);
+      // Which constraint tripped decides what the caller is told.
+      const existing = await promisify(dbHelpers, 'getReferralCodeByUserId', ownerUserId);
       if (existing) {
         throw fail(
-          `Танд аль хэдийн "${existing.code}" гэсэн код байна. Нэг хүн нэг код үүсгэнэ.`,
+          `Энэ хэрэглэгчид аль хэдийн "${existing.code}" гэсэн код байна. Нэг хүн нэг код эзэмшинэ.`,
           'ALREADY_HAS_CODE'
         );
       }
@@ -172,10 +247,15 @@ async function bindCodeToUser(dbHelpers, refereeUserId, rawCode) {
     }
   }
 
+  // The cap is checked inside the INSERT, not here — see the repository. A
+  // check at this point would be advisory only, because another customer can
+  // take the last slot between it and the insert.
+  const maxUses = Number(referralCode.max_uses) || 0;
+  let result;
   try {
-    await promisify(
+    result = await promisify(
       dbHelpers, 'bindReferralAttribution',
-      refereeUserId, referralCode.id, referralCode.user_id
+      refereeUserId, referralCode.id, referralCode.user_id, maxUses
     );
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -184,10 +264,23 @@ async function bindCodeToUser(dbHelpers, refereeUserId, rawCode) {
     throw error;
   }
 
+  // Zero rows inserted means the guard rejected it: the code is spent.
+  if (!result.bound) {
+    throw fail(
+      `"${referralCode.code}" код ашиглах хязгаартаа хүрсэн байна (${maxUses} хүн). Өөр код оруулна уу.`,
+      'CODE_EXHAUSTED'
+    );
+  }
+
+  const uses = await promisify(dbHelpers, 'countReferralUses', referralCode.id);
+
   return {
     code: referralCode.code,
     referrerUsername: referralCode.owner_username,
-    bonusPercent: referralCode.bonus_percent_override ?? settings.bonusPercent
+    bonusPercent: clampToBand(referralCode.bonus_percent_override ?? settings.bonusPercent),
+    maxUses,
+    usedCount: uses,
+    remainingUses: maxUses > 0 ? Math.max(maxUses - uses, 0) : null
   };
 }
 
@@ -211,7 +304,7 @@ async function resolveTermsForUser(dbHelpers, userId) {
   // 'first_order' stops the customer's bonus after their first delivered
   // order; the creator's commission is unaffected, since the creator keeps
   // driving the sales either way.
-  let bonusPercent = attribution.bonus_percent_override ?? settings.bonusPercent;
+  let bonusPercent = clampToBand(attribution.bonus_percent_override ?? settings.bonusPercent);
   if (settings.bonusScope === 'first_order') {
     const completed = await promisify(dbHelpers, 'getUserCompletedOrderCount', userId);
     if (completed > 0) bonusPercent = 0;
@@ -226,7 +319,9 @@ async function resolveTermsForUser(dbHelpers, userId) {
     refereeUserId: userId,
     code: attribution.code,
     bonusPercent,
-    commissionPercent: attribution.commission_percent_override ?? settings.commissionPercent,
+    commissionPercent: clampToBand(
+      attribution.commission_percent_override ?? settings.commissionPercent
+    ),
     maxBonusRobux: settings.maxBonusRobux
   };
 }
@@ -301,11 +396,17 @@ module.exports = {
   CODE_MIN_LENGTH,
   CODE_MAX_LENGTH,
   CODE_PATTERN,
+  PERCENT_MIN,
+  PERCENT_MAX,
   RESERVED_CODES,
   ORDER_STATUS,
   getReferralSettings,
   normaliseCode,
+  normalisePercent,
+  normaliseMaxUses,
+  clampToBand,
   createCodeForUser,
+  issueCodeForOwner,
   isCodeAvailable,
   bindCodeToUser,
   resolveTermsForUser,

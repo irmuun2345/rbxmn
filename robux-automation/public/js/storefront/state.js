@@ -21,11 +21,19 @@ export const state = {
   // Chosen by the server, never by the buyer — see fulfilment.js.
   method: 'group',
   authorizedUniverseIds: [],
+  // True when the server reports the Game Pass route as closed platform-side,
+  // which is a different situation from a buyer who granted no experience:
+  // nothing the buyer does reopens it.
+  gamepassDisabled: false,
 
-  // Catalogue, and which entry each of the two pickers has selected.
+  // Catalogue, and which entry the Buy tab's picker has selected. There is
+  // no gift equivalent: a gift card takes a typed amount, not a package.
   packages: [],
   selectedOrderPackageId: null,
-  selectedGiftPackageId: null,
+
+  // MNT per 100 Robux, as /pricing reports it. Nothing renders it directly;
+  // the gift card quote is computed from it.
+  pricePer100: 0,
 
   // Loyalty discount, applied to displayed prices only. The server applies
   // its own copy when the order is actually priced.
@@ -33,5 +41,10 @@ export const state = {
 
   // The order whose payment panel is on screen, and the timer polling it.
   orderId: null,
-  paymentPollTimer: null
+  paymentPollTimer: null,
+
+  // Every purchase this customer has ever made — orders and gift cards both,
+  // newest first and flattened into one shape by orders.js. Held here rather
+  // than refetched per redraw so filtering and paging the history is free.
+  orders: []
 };

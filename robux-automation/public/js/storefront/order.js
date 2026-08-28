@@ -1,5 +1,8 @@
 // Placing an order and following it to delivery: the payment panel, the
 // receipt upload, and the status poll that drives the stepper.
+//
+// The status vocabulary this reads from lives in order-status-view.js, which
+// the history list shares — see the note at the top of that file.
 
 import { $, showResult, setLoading } from '../common/dom.js';
 import { request, jsonBody } from '../common/api.js';
@@ -8,31 +11,17 @@ import { state } from './state.js';
 import { orderBlockedReason } from './fulfilment.js';
 import { loadProfile, renderLevel } from './profile.js';
 import { renderBankAccounts } from './bank-accounts.js';
+import { statusView, CAN_UPLOAD_RECEIPT } from './order-status-view.js';
+import { selectTab } from './tabs.js';
 
-// Mirrors src/services/order-status.js. Each entry drives the badge, the
-// stepper position, and the explanatory line under the payment panel.
-const ORDER_STATUS_VIEW = {
-  requested:               { label: 'Захиалга үүссэн',          badge: 'badge-pending', step: 2 },
-  awaiting_payment:        { label: 'Төлбөр хүлээж байна',      badge: 'badge-pending', step: 2 },
-  payment_submitted:       { label: 'Баримт илгээгдсэн',        badge: 'badge-pending', step: 3,
-    note: 'Баримт хүлээн авлаа. Админ шалгаж байна.' },
-  under_review:            { label: 'Шалгаж байна',             badge: 'badge-pending', step: 3,
-    note: 'Админ таны баримтыг шалгаж байна.' },
-  payment_approved:        { label: 'Төлбөр баталгаажсан',      badge: 'badge-active',  step: 4,
-    note: 'Админ таны төлбөрийг баталгаажууллаа. Хүргэлтэд бэлтгэж байна.' },
-  payment_rejected:        { label: 'Төлбөр татгалзсан',        badge: 'badge-danger',  step: 2, terminal: false },
-  fulfillment_pending:     { label: 'Хүргэлт хүлээгдэж байна',  badge: 'badge-active',  step: 4,
-    note: 'Төлбөр баталгаажлаа. Таны Robux удахгүй хүргэгдэнэ.' },
-  fulfillment_processing:  { label: 'Хүргэлт явагдаж байна',    badge: 'badge-active',  step: 4,
-    note: 'Robux хүргэх үйлдэл явагдаж байна.' },
-  completed:               { label: 'Дууссан',                  badge: 'badge-active',  step: 5, terminal: true,
-    note: 'Таны Robux амжилттай хүргэгдлээ. Баярлалаа!' },
-  failed:                  { label: 'Амжилтгүй',                badge: 'badge-danger',  step: 4, terminal: true,
-    note: 'Хүргэлт амжилтгүй боллоо. Админтай холбогдоно уу.' }
-};
+// Set by main.js once orders.js is initialised. A plain import would be a
+// cycle — orders.js already imports resumeOrder from here — and this module
+// must keep working if the history panel is not on the page at all.
+let refreshHistory = () => {};
 
-// The states in which the buyer still owes us a receipt.
-const CAN_UPLOAD_RECEIPT = ['awaiting_payment', 'payment_rejected'];
+export function onOrderChanged(callback) {
+  refreshHistory = callback;
+}
 
 export function stopPaymentPolling() {
   if (state.paymentPollTimer) clearTimeout(state.paymentPollTimer);
@@ -54,39 +43,73 @@ function setReceiptUploadVisible(visible) {
   if (box) box.hidden = !visible;
 }
 
+// Event and referral bonuses are separate promises, so both are named rather
+// than merged into one opaque "+15%".
+function renderBonusNote(data) {
+  const parts = [];
+  if (data.bonusPercent > 0) {
+    parts.push(`${data.eventName || 'Эвент'} +${data.bonusPercent}%`);
+  }
+  if (data.referralBonusPercent > 0) {
+    parts.push(data.referralCode
+      ? `Урилга (${data.referralCode}) +${data.referralBonusPercent}%`
+      : `Урилга +${data.referralBonusPercent}%`);
+  }
+
+  $('bonus-note').hidden = !parts.length;
+  if (!parts.length) return;
+  $('bonus-note').textContent = `🎉 ${parts.join(' · ')} · ${formatNumber(data.deliveredRobux)} Robux хүргэгдэнэ`;
+}
+
 function showPaymentPanel(data) {
   $('create-form').hidden = true;
   state.orderId = data.orderId;
   renderBankAccounts($('bank-list'), data.banks, 'bank');
   $('payment-reference').textContent = data.paymentReference;
   $('payment-amount').textContent = formatMnt(data.amountMnt);
-  $('payment-status').className = 'badge badge-pending';
-  $('payment-status').innerHTML = '<i class="dot"></i>Төлбөр хүлээж байна';
 
-  // Event and referral bonuses are separate promises, so both are named
-  // rather than merged into one opaque "+15%".
-  const bonusParts = [];
-  if (data.bonusPercent > 0) {
-    bonusParts.push(`${data.eventName || 'Эвент'} +${data.bonusPercent}%`);
-  }
-  if (data.referralBonusPercent > 0) {
-    bonusParts.push(`Урилга (${data.referralCode}) +${data.referralBonusPercent}%`);
-  }
-  if (bonusParts.length) {
-    $('bonus-note').hidden = false;
-    $('bonus-note').textContent = `🎉 ${bonusParts.join(' · ')} — ${formatNumber(data.deliveredRobux)} R$ `
-      + `хүргэгдэнэ (${formatNumber(data.requestedRobux)} R$-ний оронд)`;
-  } else {
-    $('bonus-note').hidden = true;
-  }
+  const view = statusView(data.status || 'awaiting_payment');
+  $('payment-status').className = `badge ${view.badge}`;
+  $('payment-status').textContent = view.label;
 
-  setStepper(2);
+  renderBonusNote(data);
+
+  setStepper(view.step);
   // A resumed order may already be past the upload stage.
-  setReceiptUploadVisible(!data.status || CAN_UPLOAD_RECEIPT.includes(data.status));
+  setReceiptUploadVisible(CAN_UPLOAD_RECEIPT.includes(data.status || 'awaiting_payment'));
   $('receipt-result').hidden = true;
+  $('payment-result').hidden = true;
   $('payment-panel').hidden = false;
   $('payment-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   pollPaymentStatus(data.orderId, data.status || 'awaiting_payment');
+}
+
+/**
+ * Reopens an order the buyer left unfinished, straight into the panel it was
+ * abandoned from. The bank list is refetched rather than remembered: an admin
+ * may have changed which accounts are live since the order was placed, and
+ * paying into a retired account is the one mistake this flow cannot undo.
+ *
+ * @param {object} row a game_passes row as /profile returns it
+ */
+export async function resumeOrder(row) {
+  selectTab('buy');
+  try {
+    const { accounts } = await request('/bank-account');
+    showPaymentPanel({
+      orderId: row.id,
+      banks: accounts,
+      paymentReference: row.payment_reference,
+      amountMnt: row.amount_mnt,
+      status: row.status,
+      bonusPercent: row.bonus_percent,
+      referralBonusPercent: row.referral_bonus_percent,
+      deliveredRobux: row.delivered_robux || row.price,
+      requestedRobux: row.price
+    });
+  } catch (error) {
+    showResult($('create-result'), error.message, true);
+  }
 }
 
 async function pollPaymentStatus(orderId, lastStatus) {
@@ -95,13 +118,16 @@ async function pollPaymentStatus(orderId, lastStatus) {
     const data = await request('/profile');
     const order = data.gamePasses.find((gamePass) => gamePass.id === orderId);
     const status = order?.status || lastStatus;
-    const view = ORDER_STATUS_VIEW[status];
+    const view = statusView(status);
 
-    if (view && status !== lastStatus) {
+    if (status !== lastStatus) {
       $('payment-status').className = `badge ${view.badge}`;
       $('payment-status').textContent = view.label;
       setStepper(view.step);
       setReceiptUploadVisible(CAN_UPLOAD_RECEIPT.includes(status));
+      // The history list is showing this same order; it must not still be
+      // claiming the old status while the panel above it shows the new one.
+      refreshHistory();
 
       if (status === 'payment_rejected') {
         // A rejection isn't the end — the buyer can send a corrected receipt
@@ -118,7 +144,7 @@ async function pollPaymentStatus(orderId, lastStatus) {
       }
     }
 
-    if (view?.terminal) {
+    if (view.terminal) {
       // The level ring can only have moved on a completed order, and the
       // response already in hand carries it — no second round trip.
       if (status === 'completed' && data.level) renderLevel(data.level);
@@ -131,12 +157,14 @@ async function pollPaymentStatus(orderId, lastStatus) {
   }
 }
 
-// Puts the panel back to its pre-order state. Called on logout.
+// Puts the panel back to its pre-order state. Called on logout, and by the
+// "place another order" button once one has finished.
 export function resetOrderPanel() {
   stopPaymentPolling();
   state.orderId = null;
   $('create-form').hidden = false;
   $('payment-panel').hidden = true;
+  $('create-result').hidden = true;
 }
 
 function initReceiptUpload() {
@@ -178,6 +206,7 @@ function initReceiptUpload() {
       input.value = '';
       $('receipt-file-name').textContent = 'Файл сонгоогүй байна';
       setReceiptUploadVisible(false);
+      refreshHistory();
       pollPaymentStatus(state.orderId, 'awaiting_payment');
     } catch (error) {
       showResult($('receipt-result'), error.message, true);
@@ -190,6 +219,13 @@ function initReceiptUpload() {
 export function initOrder() {
   initReceiptUpload();
 
+  // Leaves the finished order alone in the history and gives the buyer the
+  // form back. Without it the only way to place a second order was a reload.
+  $('new-order-btn')?.addEventListener('click', () => {
+    resetOrderPanel();
+    $('create-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
   $('create-order-btn').addEventListener('click', async () => {
     const button = $('create-order-btn');
 
@@ -197,9 +233,6 @@ export function initOrder() {
     const blocked = orderBlockedReason();
     if (blocked) {
       showResult($('create-result'), blocked, true);
-      if (!state.authorizedUniverseIds.length) {
-        $('route-unlock').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
       return;
     }
 
@@ -228,6 +261,7 @@ export function initOrder() {
       );
       showPaymentPanel(data);
       loadProfile();
+      refreshHistory();
     } catch (error) {
       showResult($('create-result'), error.message, true);
     } finally {

@@ -1,4 +1,5 @@
 const { ensurePhoneLinked } = require('./phone-controller');
+const { isGamePassRouteEnabled, GAMEPASS_DISABLED_MESSAGE } = require('../services/gamepass-route');
 const { priceForPackage } = require('../services/pricing');
 const { generateUniqueReference } = require('../services/payment-reference');
 const { checkEligibility } = require('../services/group-eligibility');
@@ -8,7 +9,7 @@ const { ORDER_STATUS } = require('../services/order-status');
 // Roblox takes 30% of a Game Pass sale, so the seller keeps 0.70 of the list
 // price. To put N Robux in the buyer's hands we must therefore list — and pay
 // — N / 0.70, not N * 1.30: those are different numbers (1143 vs 1040 for an
-// 800 R$ order), and the second one silently short-changes the buyer by ~9%
+// 800 Robux order), and the second one silently short-changes the buyer by ~9%
 // because 1040 * 0.70 = 728, not 800.
 const SELLER_PAYOUT_RATE = 0.70;
 
@@ -21,16 +22,21 @@ const SELLER_PAYOUT_RATE = 0.70;
 // admin already has in front of them when reconciling a bank transfer: seeing
 // the same code on the Roblox pass is what makes "is this the right pass?"
 // answerable at a glance. Roblox caps pass names at 50 characters, and
-// `RBX 1,700 R$ · RBX-K7M2QP` sits comfortably inside that.
-function buildGamePassIdentity(deliveredRobux, paymentReference) {
-  return {
-    name: `RBX ${deliveredRobux} R$ · ${paymentReference}`.slice(0, 50),
-    description:
-      `RBX захиалга ${paymentReference}. Энэ Game Pass нь зөвхөн энэ захиалгын `
-      + `${deliveredRobux} Robux-ийг хүргэхэд ашиглагдана. Худалдан авалт `
-      + 'баталгаажсаны дараа устгаж болно.'
-  };
-}
+// `RBX 1,700 Robux · RBX-K7M2QP` sits comfortably inside that.
+// What the buyer's Game Pass is called on Roblox: the brand, and nothing else.
+//
+// It used to carry the amount and the payment reference, on the reasoning that
+// a pass showing "rbxmn 100 RBX-APN9YS" ties itself back to a bank transfer
+// without anyone opening the admin queue. That redundancy is gone by choice.
+// Reconciliation does not depend on it — an order stores its own
+// roblox_gamepass_id and payment_reference, and the queue links the two — and
+// Roblox moderates this text per item and asynchronously, so what a buyer
+// actually sees on a pass page was never guaranteed to be the string sent
+// here. A fixed brand is one less moderated string per order.
+//
+// Consequence worth knowing: looking at a pass on Roblox alone no longer tells
+// you which order it belongs to. Match it by id through the admin queue.
+const GAME_PASS_IDENTITY = { name: 'rbxmn', description: 'rbxmn' };
 
 class GamePassController {
   constructor(dbHelpers, RobloxAuth) {
@@ -207,6 +213,17 @@ class GamePassController {
     const { packageId, universeId } = req.body;
     const authorizedUniverseIds = (req.session.authorizedUniverseIds || []).map(String);
 
+    // Refused here as well as hidden in the storefront: the client decides what
+    // to render, the server decides what may exist. Taking money for a delivery
+    // Roblox no longer permits is the failure this prevents.
+    if (!isGamePassRouteEnabled()) {
+      return res.status(403).json({
+        success: false,
+        error: GAMEPASS_DISABLED_MESSAGE,
+        reason: 'gamepass_route_disabled'
+      });
+    }
+
     if (!req.session.userId) {
       return res.status(401).json({ success: false, error: 'Эхлээд Roblox аккаунтаа холбоно уу.' });
     }
@@ -234,7 +251,7 @@ class GamePassController {
         success: false,
         error:
           'Танд Game Pass үүсгэх боломжтой Roblox experience алга байна. '
-          + 'Группд элсээд хүлээвэл Robux шууд шилжүүлэх боломжтой болно.',
+          + 'Хэдэн өдрийн дараа өөр аргаар автоматаар хүргэх боломжтой болно.',
         reason: 'no_authorized_universe'
       });
     }
@@ -278,7 +295,7 @@ class GamePassController {
       // before we call Roblox. A reference burned by a later failure costs
       // nothing — they're random and there is no sequence to keep gapless.
       const paymentReference = await generateUniqueReference(this.dbHelpers);
-      const { name, description } = buildGamePassIdentity(deliveredRobux, paymentReference);
+      const { name, description } = GAME_PASS_IDENTITY;
       const robloxGamePass = await this.RobloxAuth.createGamePass({
         accessToken: req.session.robloxAccessToken,
         universeId: normalizedUniverseId,
@@ -354,7 +371,10 @@ class GamePassController {
 
       const groupId = await this.getSettingValue('group_id');
       if (!groupId) {
-        return res.status(503).json({ success: false, error: 'Групп одоогоор тохируулагдаагүй байна.' });
+        return res.status(503).json({
+          success: false,
+          error: 'Үйлчилгээ түр хугацаанд боломжгүй байна. Дэмжлэгтэй холбогдоно уу.'
+        });
       }
 
       // The route is the server's decision, not the client's. Without this
@@ -368,11 +388,18 @@ class GamePassController {
       if (!eligibility.eligible) {
         return res.status(403).json({
           success: false,
+          // Neither branch names the delivery route. What the buyer can act on
+          // is the wait, so the wait is all they are told.
           error: eligibility.isMember
-            ? `Группын payout авахад ${eligibility.requiredDays} хоногийн гишүүнчлэл шаардлагатай. Үлдсэн: ${eligibility.daysRemaining} хоног.`
-            : `Эхлээд группд элсээрэй. Группын payout ${eligibility.requiredDays} хоногийн дараа боломжтой болно.`,
+            ? `Таны аккаунт бэлэн болоход ${eligibility.daysRemaining} хоног үлдлээ.`
+            : `Таны аккаунт хараахан бэлэн болоогүй байна. ${eligibility.requiredDays} хоногийн дараа захиалга үүсгэх боломжтой болно.`,
           reason: eligibility.reason,
-          eligibility,
+          // Only the countdown crosses the wire. joinedAt, the membership
+          // source and the group id stay on this side of it.
+          eligibility: {
+            requiredDays: eligibility.requiredDays,
+            daysRemaining: eligibility.daysRemaining
+          },
           // Tells the frontend what to offer instead.
           alternativeRoute: 'gamepass'
         });

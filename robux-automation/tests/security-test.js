@@ -77,11 +77,33 @@ async function run() {
       'priced data must not be cacheable'
     );
 
-    // Self-identifying tooling, blocked site-wide before it reaches a route.
+    // Self-identifying tooling, refused on the priced endpoints.
     for (const ua of ['curl/8.0.1', 'python-requests/2.31.0', 'Scrapy/2.11', 'Go-http-client/1.1']) {
       const scraped = await request(port, '/pricing', { 'user-agent': ua });
       assert.equal(scraped.status, 403, `${ua} should be refused`);
     }
+
+    // A scripted browser announces itself in the UA and still cannot read the
+    // catalogue, however well-formed the rest of the request is.
+    const headless = await request(port, '/pricing', {
+      'user-agent': 'Mozilla/5.0 HeadlessChrome/120.0.0.0 Safari/537.36',
+      'sec-fetch-site': 'same-origin'
+    });
+    assert.equal(headless.status, 403, 'headless browsers must not read pricing');
+
+    // The same UA on an HTML page has to fail *open*. Antivirus HTTPS
+    // scanning and office proxies rewrite the User-Agent of real customers,
+    // and a false positive here takes the whole storefront down for them.
+    const rewrittenUa = await request(port, '/', {
+      'user-agent': 'python-requests/2.31.0',
+      'sec-fetch-dest': 'document',
+      accept: 'text/html,application/xhtml+xml'
+    });
+    assert.equal(rewrittenUa.status, 200, 'a browser-shaped page load must survive a rewritten UA');
+
+    // Nothing browser-shaped about it, so the site-wide block still applies.
+    const bareTool = await request(port, '/', { 'user-agent': 'curl/8.0.1' });
+    assert.equal(bareTool.status, 403, 'a bare tool request should still be refused');
 
     // Fetch Metadata: a browser cannot set these from page JavaScript, which
     // is what makes them worth checking.
@@ -98,6 +120,17 @@ async function run() {
 
     const foreignReferer = await request(port, '/pricing', { origin: 'https://competitor.example' });
     assert.equal(foreignReferer.status, 403, 'a foreign Origin should be refused');
+
+    // A scrubbed User-Agent is forgiven when the request still proves it came
+    // from our own page — otherwise the storefront loads and stays empty.
+    const strippedUa = await request(port, '/pricing', {
+      'user-agent': '',
+      'sec-fetch-site': 'same-origin'
+    });
+    assert.equal(strippedUa.status, 200, 'a same-origin fetch must survive a stripped UA');
+
+    const strippedUaAlone = await request(port, '/pricing', { 'user-agent': '' });
+    assert.equal(strippedUaAlone.status, 403, 'a bare request with no UA is still refused');
 
     // ---- Auth gates -------------------------------------------------------
 

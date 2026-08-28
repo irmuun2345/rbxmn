@@ -17,6 +17,8 @@ module.exports = function registerAdminSupportRoutes(app, controllers, { require
   app.get('/admin/referrals/settings', requireAdminAuth, referralController.getSettings.bind(referralController));
   app.put('/admin/referrals/settings', requireAdminAuth, referralController.updateSettings.bind(referralController));
   app.get('/admin/referrals/codes', requireAdminAuth, referralController.getCodes.bind(referralController));
+  // Codes are issued from here, not claimed by customers.
+  app.post('/admin/referrals/codes', requireAdminAuth, referralController.issueCode.bind(referralController));
   app.put('/admin/referrals/codes/:id', requireAdminAuth, referralController.updateCodeTerms.bind(referralController));
   app.post(
     '/admin/referrals/codes/:id/payout',

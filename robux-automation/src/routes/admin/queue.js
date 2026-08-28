@@ -8,6 +8,14 @@ module.exports = function registerAdminQueueRoutes(app, controllers, { requireAd
 
   app.get('/admin/orders', requireAdminAuth, adminController.getOrders.bind(adminController));
 
+  // Sales totals. Ahead of /admin/orders/:id for the same reason as
+  // /admin/orders/stalled below — a literal path must not be read as an id.
+  app.get('/admin/orders/stats', requireAdminAuth, adminController.getOrderStats.bind(adminController));
+
+  // The same sales, filtered by date range and free-text search. Read-only,
+  // and literal for the same reason as the two paths around it.
+  app.get('/admin/orders/sales', requireAdminAuth, adminController.getSalesSearch.bind(adminController));
+
   // Orders stuck mid-delivery. These are never retried automatically — an
   // admin has to check Roblox and state what actually happened, because a
   // payout that already landed must not be sent twice.

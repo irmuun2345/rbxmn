@@ -8,6 +8,8 @@ const USERINFO_URL = 'https://apis.roblox.com/oauth/v1/userinfo';
 const TOKEN_RESOURCES_URL = 'https://apis.roblox.com/oauth/v1/token/resources';
 const GAME_PASSES_URL = 'https://apis.roblox.com/game-passes/v1/universes';
 const INVENTORY_URL = 'https://apis.roblox.com/cloud/v2/users';
+const UNIVERSES_URL = 'https://games.roblox.com/v1/games';
+const GAME_PASS_PRODUCT_URL = 'https://apis.roblox.com/game-passes/v1/game-passes';
 
 class RobloxAuth {
   static getOAuthConfig(redirectUri) {
@@ -150,6 +152,57 @@ class RobloxAuth {
       gamePassId: String(gamePassId),
       name: response.data.name || name,
       price
+    };
+  }
+
+  // Where a Game Pass can actually be bought.
+  //
+  // A pass has no usable page of its own: https://www.roblox.com/game-pass/<id>
+  // answers 404 to anyone not signed in, and no pass this app created has ever
+  // been opened through it. What does work is the Store tab of the experience
+  // the pass belongs to — and that is addressed by root place, not by universe,
+  // so the id we hold has to be translated first.
+  //
+  // Batched deliberately: the admin queue resolves every universe it is about
+  // to render in one request, so a slow Roblox answers the whole page once
+  // instead of once per row.
+  static async getRootPlaceIds(universeIds) {
+    const ids = [...new Set(
+      universeIds.map(String).filter((id) => /^\d+$/.test(id))
+    )].slice(0, 50);
+    if (!ids.length) return new Map();
+
+    const response = await axios.get(UNIVERSES_URL, {
+      params: { universeIds: ids.join(',') },
+      timeout: 15000
+    });
+
+    return new Map(
+      (response.data?.data || [])
+        .filter((universe) => universe?.id && universe?.rootPlaceId)
+        .map((universe) => [String(universe.id), String(universe.rootPlaceId)])
+    );
+  }
+
+  // What Roblox will charge for a pass, and who it pays.
+  //
+  // The pass id in an order row is not what a purchase call takes: buying goes
+  // through the *product* id, and the price and seller have to be sent with it
+  // so Roblox refuses the charge if either moved after we looked. This is the
+  // only place those three facts come from, and it is public — no credential
+  // involved, because it describes a listing rather than an account.
+  static async getGamePassProductInfo(gamePassId) {
+    const response = await axios.get(
+      `${GAME_PASS_PRODUCT_URL}/${encodeURIComponent(gamePassId)}/product-info`,
+      { timeout: 15000 }
+    );
+
+    const info = response.data || {};
+    return {
+      productId: Number(info.ProductId),
+      priceInRobux: Number(info.PriceInRobux),
+      sellerId: Number(info.Creator?.Id),
+      isForSale: Boolean(info.IsForSale)
     };
   }
 

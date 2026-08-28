@@ -3,22 +3,34 @@
    result of an action.
    ============================================================ */
 
-/* ---------- notices / badges ---------- */
+/* ---------- notices ---------- */
 
 .notice {
-  margin: 0.9rem 0 0;
-  border: 1px solid var(--border-strong);
+  display: flex;
+  margin: 0.95rem 0 0;
+  gap: 0.6rem;
+  border: var(--stroke) solid var(--border-strong);
+  border-left: 5px solid var(--venom);
   border-radius: var(--radius-sm);
-  padding: 0.7rem 0.9rem;
-  color: var(--gold);
-  background: var(--positive-bg);
-  font-size: 0.86rem;
+  padding: 0.8rem 1rem;
+  color: var(--text);
+  background: var(--venom-soft);
+  font-size: 0.87rem;
+  font-weight: 500;
 }
 
 .notice.error {
   color: var(--danger);
   background: var(--danger-bg);
-  border-color: rgba(178, 88, 80, 0.35);
+  border-color: rgba(255, 122, 107, 0.35);
+  border-left-color: var(--danger);
+}
+
+.notice.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-color: rgba(201, 160, 60, 0.35);
+  border-left-color: var(--warn);
 }
 
 .notice a {
@@ -26,38 +38,66 @@
   text-decoration: underline;
 }
 
+/* ---------- badges ----------
+
+   Squared off rather than capsule-shaped, so a status reads as a stamped
+   label on a block instead of a tag floating over one.
+
+   Four status hues, not one. An order list in which "төлбөр хүлээж байна",
+   "шалгаж байна", "дууссан" and "амжилтгүй" all render identically is a list
+   you have to read word by word to scan. */
+
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border-radius: var(--radius-sm);
-  padding: 0.32rem 0.65rem;
+  border-radius: 7px;
+  padding: 0.26rem 0.6rem;
   color: var(--dim);
-  background: transparent;
-  border: 1px solid var(--border);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  background: var(--surface);
+  border: var(--stroke) solid var(--border);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
+/* Waiting on the buyer, or on us. */
 .badge-pending {
-  color: var(--gold);
-  border-color: var(--border-strong);
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-color: rgba(201, 160, 60, 0.34);
 }
 
+/* In flight — we have it and are working on it. */
 .badge-active {
-  color: var(--gold);
-  background: var(--positive-bg);
-  border-color: var(--border-strong);
+  color: var(--venom-text);
+  background: transparent;
+  border-color: var(--venom-line);
+}
+
+/* Finished, money delivered.
+
+   Losing the blue cost this file its fourth hue, so "in flight" and
+   "delivered" are now the same green — which would be a regression if hue
+   were the only thing carrying them. It is not: in flight is an outline and
+   delivered is a solid, stamped block. The pair reads as one process at two
+   stages rather than as two unrelated states, which is what they are, and
+   the weight difference survives at a glance where a fourth invented hue
+   would only have survived by not belonging to the mark. */
+.badge-ok {
+  color: #000;
+  background: var(--ok);
+  border-color: var(--venom-lit);
 }
 
 /* Rejected payments and failed fulfilments — the two states a buyer or
-   admin has to actually act on, so they get the one non-gold accent. */
+   admin has to actually act on. */
 .badge-danger {
   color: var(--danger);
   background: var(--danger-bg);
-  border-color: rgba(178, 88, 80, 0.32);
+  border-color: rgba(255, 122, 107, 0.34);
 }
 
 .reject-reason {
@@ -74,8 +114,8 @@
   width: 56px;
   height: 56px;
   object-fit: cover;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: var(--stroke) solid var(--border);
+  border-radius: var(--radius-xs);
   background: var(--bg-soft);
 }
 
@@ -84,7 +124,7 @@
   place-items: center;
   font-family: var(--mono);
   font-size: 0.7rem;
-  color: var(--gold);
+  color: var(--venom-text);
 }
 
 .receipt-link:hover .receipt-thumb {
@@ -94,14 +134,14 @@
 /* Audit trail. Money-moving and access-changing entries get a left rule so
    they're findable by eye in a long, mostly-routine list. */
 .audit-row.is-critical {
-  border-left: 2px solid var(--gold-deep);
+  border-left: 2px solid var(--accent);
   padding-left: 0.6rem;
 }
 
 /* Stuck deliveries. The one thing on this page that means real money may be
-   in an unknown state, so it doesn't share the gold palette. */
+   in an unknown state, so it doesn't share the calm palette. */
 .stalled-section {
-  border-color: rgba(178, 88, 80, 0.4);
+  border-color: rgba(255, 122, 107, 0.4);
   background: var(--danger-bg);
 }
 
@@ -126,14 +166,15 @@
 
 .checkbox-row input {
   width: auto;
+  min-height: 0;
   margin: 0;
-  accent-color: var(--gold-deep);
+  accent-color: var(--accent);
 }
 
 /* Referral code rows carry more controls than the other editable lists, so
    they wrap rather than squeezing everything onto one line. */
 .referral-row.is-influencer {
-  border-left: 2px solid var(--gold-deep);
+  border-left: 2px solid var(--venom-deep);
   padding-left: 0.6rem;
 }
 
@@ -148,17 +189,18 @@
 .mini-input {
   width: 8.5rem;
   min-width: 0;
-  padding: 0.35rem 0.5rem;
+  min-height: 38px;
+  padding: 0.35rem 0.55rem;
   font-size: 0.8rem;
 }
 
 .referral-balance strong {
-  color: var(--gold);
+  color: var(--venom-text);
 }
 
 /* Live availability feedback while choosing a referral code. */
 .hint-ok {
-  color: var(--gold);
+  color: var(--ok);
 }
 
 .hint-bad {
@@ -176,17 +218,16 @@
 }
 
 .dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: currentColor;
 }
 
-.dot-live {
-  animation: pulse-dot 2.4s ease-in-out infinite;
-}
-
+/* The pulse itself is kept: workspace.css drives the live-event pip with it.
+   Only the .dot-live helper went, with the hero's trust chips. */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  50% { opacity: 0.3; }
 }
