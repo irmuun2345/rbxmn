@@ -126,6 +126,15 @@ app.get(['/favicon.ico', '/favicon.svg'], (req, res) => {
   res.redirect(301, '/img/favicon.png');
 });
 
+// The front door shipped at /main for a few days before it became the site
+// root. Anything that saw it in that window — a bookmark, a shared link, a
+// search result — should land on the page rather than on a 404, and 301 is
+// what tells a crawler the move is permanent. Ahead of the HTML handler,
+// which would otherwise look for a main.html that no longer exists.
+app.get(['/main', '/main.html'], (req, res) => {
+  res.redirect(301, '/');
+});
+
 // HTML goes through the nonce stamper; everything else through static.
 // index:false stops static from serving index.html behind the stamper's back.
 app.use(nonceStampedHtml(PUBLIC_DIR));

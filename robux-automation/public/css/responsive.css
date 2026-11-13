@@ -451,3 +451,194 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   The glass hero, narrowed.
+
+   The desktop hero is three overlapping layers. That composition needs
+   width: below about 1080px the character has nowhere to stand that is not
+   already occupied by either the claim or the price ladder, so the layers
+   unstack into an ordinary column and the character steps behind the whole
+   thing as a wash instead of standing in front of it.
+   ============================================================ */
+
+@media (max-width: 1080px) {
+  body.theme-glass .hero-stage {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    gap: 2rem;
+  }
+
+  /* Every hero child returns to the flow, and `order` fixes the reading order
+     the two-column placement was giving them implicitly: claim, then the nav
+     that belongs with it, then the prices, then the promotion. */
+  body.theme-glass .hero-copy {
+    grid-column: 1;
+    grid-row: auto;
+    order: 1;
+    max-width: 100%;
+    padding-top: 0.5rem;
+  }
+
+  body.theme-glass .topup {
+    grid-column: 1;
+    grid-row: auto;
+    order: 3;
+  }
+
+  /* Behind the content rather than beside it, dimmed to where it cannot
+     compete with type sitting on top of it. Anchored right so the claim,
+     which is left-aligned, still lands on empty ground. */
+  body.theme-glass .hero-character {
+    left: auto;
+    right: -8%;
+    width: min(62vw, 460px);
+    opacity: 0.28;
+    transform: none;
+  }
+
+  /* The rail leaves the left margin — there is none at this width — and
+     becomes a row under the claim. Same four destinations, same markup. */
+  body.theme-glass .rail {
+    grid-column: 1;
+    grid-row: auto;
+    order: 2;
+    grid-auto-flow: column;
+    justify-content: start;
+    align-self: start;
+    padding-bottom: 0;
+    margin-top: -0.5rem;
+    gap: 0.7rem;
+  }
+
+  body.theme-glass .rail-link {
+    width: 50px;
+    height: 50px;
+  }
+
+  /* A tooltip that opens to the right runs off the screen on the last
+     circle in a row. Below the circle it cannot. */
+  body.theme-glass .rail-link::after {
+    top: calc(100% + 0.45rem);
+    left: 50%;
+    transform: translate(-50%, -4px);
+  }
+
+  body.theme-glass .rail-link:hover::after,
+  body.theme-glass .rail-link:focus-visible::after {
+    transform: translate(-50%, 0);
+  }
+
+  /* The promo card stops leaning on the panel's corner and sits inside the
+     flow beneath it, full width. Overlapping a card that now spans the
+     viewport would put it on top of the manual-amount buttons. */
+  body.theme-glass .promo-card {
+    position: static;
+    order: 4;
+    width: 100%;
+    max-width: 320px;
+    margin: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  body.theme-glass {
+    --topbar-h: 72px;
+  }
+
+  body.theme-glass .topbar-inner {
+    min-height: 72px;
+  }
+
+  body.theme-glass .brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* "Login" goes, the portrait stays. At this width the pill and the bell
+     together were taking a third of the bar. */
+  body.theme-glass .nav-link-cta {
+    gap: 0;
+    padding: 0.25rem;
+  }
+
+  body.theme-glass .nav-link-cta .cta-label {
+    display: none;
+  }
+
+  body.theme-glass .topup {
+    padding: 1.25rem 1rem;
+    border-radius: 28px;
+  }
+
+  body.theme-glass .topup-ladder {
+    padding: 0.35rem 0.6rem;
+    border-radius: var(--radius);
+  }
+
+  /* The manual-amount block is right-aligned on desktop because it hangs off
+     the bottom of a wide panel. On a phone the panel *is* the column, and a
+     right-aligned label over left-aligned prices reads as a mistake. */
+  body.theme-glass .topup-manual,
+  body.theme-glass .topup-foot {
+    text-align: left;
+  }
+
+  body.theme-glass .topup-manual-row {
+    justify-content: flex-start;
+  }
+
+  body.theme-glass .topup-unit {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 620px) {
+  /* The character is gone entirely here. At 400px it is a 40px-wide smear
+     behind the text, which is cost without benefit — it still downloads. */
+  body.theme-glass .hero-character {
+    display: none;
+  }
+
+  body.theme-glass .claim-line.is-indented {
+    padding-left: 0;
+  }
+
+  body.theme-glass .topup-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.6rem;
+  }
+
+  body.theme-glass .topup-robux {
+    padding: 0.35rem 0.75rem;
+    gap: 0.45rem;
+  }
+
+  body.theme-glass .topup-coin {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* The bottom bar, on the new ground. The rule above paints it near-black,
+   which was the page ground it was designed against; on charcoal that reads
+   as a black strip taped across the bottom of the screen. */
+@media (max-width: 720px) {
+  body.theme-glass .tabs {
+    border-top: var(--stroke) solid var(--glass-edge);
+    background: rgba(28, 28, 28, 0.94);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+
+  body.theme-glass .tab[aria-selected="true"] {
+    color: var(--venom-text);
+    background: var(--venom-soft);
+  }
+
+  body.theme-glass .tab[aria-selected="true"] .tab-count {
+    color: #171717;
+    background: var(--venom);
+  }
+}

@@ -1,5 +1,7 @@
 const { ensurePhoneLinked } = require('./phone-controller');
 const { isGamePassRouteEnabled, GAMEPASS_DISABLED_MESSAGE } = require('../services/gamepass-route');
+const { messengerUrl, MESSENGER_NOT_CONFIGURED_MESSAGE } = require('../services/manual-route');
+const { evaluateReadiness, readinessMessage, requiredMinimumAge } = require('../services/experience-readiness');
 const { priceForPackage } = require('../services/pricing');
 const { generateUniqueReference } = require('../services/payment-reference');
 const { checkEligibility } = require('../services/group-eligibility');
@@ -162,6 +164,7 @@ class GamePassController {
       ratePer100Mnt: order.rate_per_100_mnt,
       paymentReference: order.payment_reference,
       deliveryMethod: order.delivery_method,
+      messengerUrl: order.delivery_method === 'manual' ? messengerUrl() : null,
       banks: await this.getBankDetails(),
       status: order.status
     });
@@ -207,6 +210,136 @@ class GamePassController {
         else resolve(event ? { name: event.name, bonusPercent: Number(event.bonus_percent), endsAt: event.ends_at } : null);
       });
     });
+  }
+
+  async checkExperience(universeId, accessToken) {
+    const universe = await this.RobloxAuth.getUniverse(universeId, accessToken);
+    return evaluateReadiness(universe);
+  }
+
+  // What the storefront's setup checklist needs, and nothing more.
+  static publicReadiness(universeId, readiness) {
+    return {
+      universeId: String(universeId),
+      displayName: readiness.displayName,
+      isPublic: readiness.isPublic,
+      rated: readiness.rated,
+      minimumAge: readiness.minimumAge,
+      requiredAge: readiness.requiredAge,
+      missing: readiness.missing,
+      ready: readiness.ready,
+      message: readinessMessage(readiness)
+    };
+  }
+
+  // GET /gamepass/readiness — one row per experience the buyer granted us,
+  // so the checklist can tick itself off as they finish each step on Roblox.
+  // Only universes from this session's own grant are ever looked up.
+  async getExperienceReadiness(req, res) {
+    if (!isGamePassRouteEnabled()) {
+      return res.status(403).json({ success: false, error: GAMEPASS_DISABLED_MESSAGE, reason: 'gamepass_route_disabled' });
+    }
+
+    const authorized = (req.session.authorizedUniverseIds || []).map(String);
+    const requested = req.query.universeId ? String(req.query.universeId) : null;
+    if (requested && !authorized.includes(requested)) {
+      return res.status(403).json({ success: false, error: 'Энэ тоглоомд зөвшөөрөл өгөөгүй байна.' });
+    }
+    const universeIds = requested ? [requested] : authorized.slice(0, 10);
+
+    const experiences = await Promise.all(universeIds.map(async (universeId) => {
+      try {
+        const readiness = await this.checkExperience(universeId, req.session.robloxAccessToken);
+        return GamePassController.publicReadiness(universeId, readiness);
+      } catch (error) {
+        console.error(`Readiness check for universe ${universeId} failed:`, error.response?.status || error.message);
+        return { universeId, ready: false, error: 'Roblox-оос шалгаж чадсангүй. Дахин оролдоно уу.' };
+      }
+    }));
+
+    res.json({ success: true, requiredAge: requiredMinimumAge(), experiences });
+  }
+
+  // POST /gamepass/make-public — EXPERIMENT. Tries to switch the buyer's
+  // experience to Public for them, then re-reads it from Roblox: the answer
+  // to "did it work" is the universe's visibility afterwards, not the PATCH
+  // status. Any failure leaves the manual step in place, so nothing is lost
+  // when Roblox refuses.
+  async makeExperiencePublic(req, res) {
+    if (!isGamePassRouteEnabled()) {
+      return res.status(403).json({ success: false, error: GAMEPASS_DISABLED_MESSAGE, reason: 'gamepass_route_disabled' });
+    }
+
+    const universeId = String(req.body?.universeId || '');
+    const authorized = (req.session.authorizedUniverseIds || []).map(String);
+    if (!/^\d+$/.test(universeId) || !authorized.includes(universeId)) {
+      return res.status(403).json({ success: false, error: 'Энэ тоглоомд зөвшөөрөл өгөөгүй байна.' });
+    }
+    if (!req.session.robloxAccessToken || Number(req.session.robloxAccessTokenExpiresAt) <= Date.now()) {
+      return res.status(401).json({ success: false, error: 'Roblox зөвшөөрлийн хугацаа дууссан. Дахин нэвтэрнэ үү.' });
+    }
+
+    const token = req.session.robloxAccessToken;
+    let before;
+    try {
+      before = await this.checkExperience(universeId, token);
+    } catch (error) {
+      console.error('make-public: readiness read failed:', error.response?.status || error.message);
+      return res.status(502).json({ success: false, error: 'Тоглоомын тохиргоог Roblox-оос шалгаж чадсангүй. Дахин оролдоно уу.' });
+    }
+
+    // Roblox will not publish an unrated experience, and making a 13+ one
+    // public would not make it usable to us either. Questionnaire first.
+    if (before.missing.includes('questionnaire')) {
+      return res.status(409).json({
+        success: false,
+        error: 'Эхлээд асуулгаа бөглөж насны ангилал авна уу.',
+        reason: 'questionnaire_required',
+        readiness: GamePassController.publicReadiness(universeId, before)
+      });
+    }
+    if (before.isPublic) {
+      return res.json({ success: true, readiness: GamePassController.publicReadiness(universeId, before) });
+    }
+
+    try {
+      await this.RobloxAuth.setUniversePublic(universeId, token);
+    } catch (error) {
+      // The experiment's result lives in this log line. 403 usually means the
+      // session predates the universe:write scope; 400 means the field is not
+      // writable through Open Cloud.
+      console.error(
+        `make-public: Roblox refused PATCH visibility on universe ${universeId}:`,
+        error.response?.status,
+        JSON.stringify(error.response?.data || error.message)
+      );
+      const status = error.response?.status;
+      return res.status(status === 401 || status === 403 ? 403 : 502).json({
+        success: false,
+        error: status === 401 || status === 403
+          ? 'Автоматаар Public болгох зөвшөөрөл алга. Дахин нэвтэрч зөвшөөрөх эсвэл Settings хэсгээс өөрөө Public болгоно уу.'
+          : 'Автоматаар Public болгож чадсангүй. Creator Dashboard → Settings хэсгээс өөрөө Public болгоно уу.',
+        reason: 'make_public_refused'
+      });
+    }
+
+    let after;
+    try {
+      after = await this.checkExperience(universeId, token);
+    } catch {
+      after = before;
+    }
+    console.log(`make-public: universe ${universeId} PATCH accepted; visibility now public=${after.isPublic}`);
+
+    if (!after.isPublic) {
+      return res.status(502).json({
+        success: false,
+        error: 'Roblox хүсэлтийг хүлээж авсан ч тоглоом Public болсонгүй. Settings хэсгээс өөрөө Public болгоно уу.',
+        reason: 'make_public_no_effect',
+        readiness: GamePassController.publicReadiness(universeId, after)
+      });
+    }
+    res.json({ success: true, readiness: GamePassController.publicReadiness(universeId, after) });
   }
 
   async createGamePass(req, res) {
@@ -285,6 +418,29 @@ class GamePassController {
       const existing = await this.getActiveOrderForUser(req.session.userId);
       if (existing) {
         return this.respondWithExistingOrder(res, existing);
+      }
+
+      // Checked live, right before the pass exists: the buyer may have
+      // flipped the experience back to private since the storefront last
+      // asked. Fails closed — see services/experience-readiness.js.
+      let readiness;
+      try {
+        readiness = await this.checkExperience(normalizedUniverseId, req.session.robloxAccessToken);
+      } catch (error) {
+        console.error('Experience readiness check failed:', error.response?.status || error.message);
+        return res.status(502).json({
+          success: false,
+          error: 'Тоглоомын тохиргоог Roblox-оос шалгаж чадсангүй. Дахин оролдоно уу.',
+          reason: 'readiness_check_failed'
+        });
+      }
+      if (!readiness.ready) {
+        return res.status(409).json({
+          success: false,
+          error: readinessMessage(readiness),
+          reason: 'experience_not_ready',
+          readiness: GamePassController.publicReadiness(normalizedUniverseId, readiness)
+        });
       }
 
       const quote = await this.quotePackage(req.session.userId, packageId);
@@ -442,6 +598,76 @@ class GamePassController {
         return res.status(400).json({ success: false, error: error.message });
       }
       console.error('Create group order error:', error.response?.data || error.message);
+      res.status(500).json({ success: false, error: 'Захиалга үүсгэж чадсангүй. Дахин оролдоно уу.' });
+    }
+  }
+
+  // The route for everyone neither automatic route can serve — see
+  // services/manual-route.js. Priced and referenced exactly like a group
+  // order; the difference is that an admin delivers it from a Messenger chat.
+  async createManualOrder(req, res) {
+    if (!req.session.userId) {
+      return res.status(401).json({ success: false, error: 'Эхлээд Roblox аккаунтаа холбоно уу.' });
+    }
+
+    const packageId = Number(req.body.packageId);
+    if (!Number.isInteger(packageId)) {
+      return res.status(400).json({ success: false, error: 'Robux багцаа сонгоно уу.' });
+    }
+
+    // Refused before anything is written: an order whose only way forward is
+    // a chat link we cannot hand out is a paid order nobody will ever see.
+    const messenger = messengerUrl();
+    if (!messenger) {
+      console.error('Manual order refused: MESSENGER_URL is missing or not a Messenger link.');
+      return res.status(503).json({ success: false, error: MESSENGER_NOT_CONFIGURED_MESSAGE });
+    }
+
+    try {
+      await ensurePhoneLinked(this.dbHelpers, req.session.userId);
+
+      const existing = await this.getActiveOrderForUser(req.session.userId);
+      if (existing) {
+        return this.respondWithExistingOrder(res, existing);
+      }
+
+      const quote = await this.quotePackage(req.session.userId, packageId);
+      const { desiredRobux, deliveredRobux, terms, referralBonusRobux } = quote;
+      const paymentReference = await generateUniqueReference(this.dbHelpers);
+
+      const order = await new Promise((resolve, reject) => {
+        this.dbHelpers.createManualOrder(
+          req.session.userId,
+          desiredRobux,
+          quote.amountMnt,
+          quote.ratePer100Mnt,
+          paymentReference,
+          deliveredRobux,
+          quote.bonusPercent,
+          (error, result) => (error ? reject(error) : resolve(result))
+        );
+      });
+
+      await this.attachReferralToOrder(order.id, terms, desiredRobux, referralBonusRobux);
+
+      res.json({
+        ...GamePassController.quoteResponse(quote, {
+          orderId: order.id,
+          paymentReference,
+          banks: await this.getBankDetails()
+        }),
+        message: 'Захиалга үүслээ. Messenger-ээр бидэнд кодоо илгээнэ үү.',
+        deliveryMethod: 'manual',
+        messengerUrl: messenger
+      });
+    } catch (error) {
+      if (error.code === 'PHONE_NOT_LINKED') {
+        return res.status(403).json({ success: false, error: error.message });
+      }
+      if (error.code === 'PACKAGE_NOT_FOUND') {
+        return res.status(400).json({ success: false, error: error.message });
+      }
+      console.error('Create manual order error:', error.response?.data || error.message);
       res.status(500).json({ success: false, error: 'Захиалга үүсгэж чадсангүй. Дахин оролдоно уу.' });
     }
   }

@@ -1,0 +1,1223 @@
+/* app.css — the workspace: /app, everything behind sign-in.
+ *
+ * Loaded after main-menu.css, which stays the design system. This file styles
+ * the signed-in half in the same language: same charcoal, same glass, same
+ * green, same pill buttons.
+ *
+ * A large part of what follows names classes this file did not invent. The
+ * workspace's content — order rows, bank cards, referral tiles, every empty
+ * and error state — is written by the existing JavaScript modules, which emit
+ * their own class names. Those modules are the working checkout and are left
+ * alone; the class names are the seam, and this file re-dresses them. So
+ * `.data-row`, `.state`, `.stat-tile` and the rest appear here without ever
+ * appearing in app.html: the JS puts them there at runtime.
+ */
+
+/* ---------- shell ---------- */
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: clamp(0.5rem, 2vw, 1.5rem) var(--gutter) clamp(4rem, 8vw, 6rem);
+}
+
+.app-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: clamp(1rem, 2.5vw, 1.75rem);
+}
+
+.app-head h1 {
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.app-head-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ---------- the event banner ----------
+
+   Across the top of the workspace while a promotion is running. Loud enough
+   to notice, quiet enough not to compete with the order in progress. */
+.event-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: clamp(1rem, 2vw, 1.5rem);
+  padding: 0.75rem 1.1rem;
+  border: 1px solid rgba(63, 170, 77, 0.4);
+  border-radius: var(--r-card);
+  background: rgba(63, 170, 77, 0.1);
+  font-size: 0.88rem;
+}
+
+.event-banner .countdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--green-soft);
+}
+
+/* ---------- tabs ----------
+
+   A row of pills at desktop; a bar fixed to the bottom edge on a phone, which
+   is why every tab carries both a full label and a short one. */
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: clamp(1rem, 2.5vw, 1.75rem);
+  padding: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--skin);
+}
+
+.tab {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.tab:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+
+.tab[aria-selected="true"] {
+  background: #fff;
+  color: #16171a;
+}
+
+.tab-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tab-short { display: none; }
+
+.tab-lock {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  opacity: 0.6;
+}
+
+/* A tab is only locked while something is genuinely outstanding — see
+   applyGates in tabs.js. */
+.tab:not(.is-locked) .tab-lock { display: none; }
+
+.tab-count,
+.tab-pip {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--green);
+  color: #06210b;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.tab-pip {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+}
+
+/* ---------- panels ---------- */
+
+.panel {
+  padding: clamp(1.1rem, 2.2vw, 1.75rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025) 45%),
+    rgba(28, 29, 28, 0.55);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.panel + .panel,
+.panel.field-spaced { margin-top: clamp(0.85rem, 1.8vw, 1.25rem); }
+
+.panel-surface { background: rgba(255, 255, 255, 0.035); }
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.h3 {
+  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+  font-weight: 700;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.grid-2 {
+  display: grid;
+  gap: clamp(0.85rem, 1.8vw, 1.25rem);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+.sep { opacity: 0.5; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- fields ---------- */
+
+.field { display: grid; gap: 0.4rem; }
+
+.field-spaced { margin-top: 0.85rem; }
+
+.full { width: 100%; }
+
+label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+input[type="text"],
+input[type="tel"],
+input[type="number"],
+select {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+select {
+  /* The native arrow disappears against a dark field in several browsers, so
+     the control draws its own. */
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 1.15rem) 55%, calc(100% - 0.85rem) 55%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2.25rem;
+}
+
+input:focus-visible,
+select:focus-visible { border-color: var(--green); }
+
+.calc-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.calc-row input { flex: 1; }
+
+/* The reference a transfer must carry, and the account numbers beside it.
+   Set apart from ordinary text because it is a string to be copied exactly. */
+.calc-card {
+  display: grid;
+  gap: 0.4rem;
+  padding: clamp(0.85rem, 1.8vw, 1.15rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.calc-total {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  word-break: break-all;
+}
+
+.line-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.line-item + .line-item { box-shadow: 0 -1px 0 var(--line); }
+
+.line-item strong { color: var(--text); font-size: 1rem; }
+
+.line-item-total strong {
+  color: var(--text);
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+  font-weight: 800;
+}
+
+/* ---------- buttons ----------
+
+   Same shapes as the front door. The JS emits `.btn` with a variant, so both
+   have to exist here under those names. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.4rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+}
+
+.btn:hover { transform: translateY(-1px); }
+
+.btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+
+.btn-primary { background: var(--green); color: #06210b; }
+
+.btn-primary:hover { background: var(--green-soft); }
+
+.btn-ghost {
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+}
+
+.btn-ghost:hover { background: var(--skin-lift); }
+
+.btn-lg { padding: 0.9rem 1.6rem; font-size: 0.98rem; }
+
+.btn-sm { padding: 0.45rem 0.9rem; font-size: 0.8rem; }
+
+/* ---------- notices ---------- */
+
+.notice {
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--skin);
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.notice.error {
+  border-color: rgba(224, 139, 122, 0.4);
+  background: rgba(224, 139, 122, 0.1);
+  color: #e5a091;
+}
+
+/* ---------- experience setup checklist ---------- */
+
+.gamepass-setup {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--skin);
+}
+
+.gamepass-setup .muted { color: var(--muted); font-size: 0.85rem; line-height: 1.55; margin: 0.4rem 0 0.8rem; }
+
+.setup-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+
+.setup-steps li { display: flex; gap: 0.75rem; align-items: flex-start; }
+
+.setup-steps p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.83rem; line-height: 1.5; }
+
+.setup-mark {
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-top: 0.1rem;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+}
+
+.setup-steps li[data-done="true"] .setup-mark {
+  border-color: var(--green);
+  background: var(--green);
+  box-shadow: inset 0 0 0 3px var(--skin);
+}
+
+.setup-status:empty { display: none; }
+
+.setup-steps li[data-done="false"] .setup-status { color: #e5a091; }
+
+.setup-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.9rem; }
+
+/* ---------- badges ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-ok,
+.badge-active {
+  border-color: rgba(63, 170, 77, 0.5);
+  background: rgba(63, 170, 77, 0.12);
+  color: var(--green-soft);
+}
+
+.badge-pending {
+  border-color: rgba(215, 165, 63, 0.45);
+  background: rgba(215, 165, 63, 0.1);
+  color: #e0b45c;
+}
+
+.badge-danger {
+  border-color: rgba(224, 139, 122, 0.45);
+  background: rgba(224, 139, 122, 0.1);
+  color: #e5a091;
+}
+
+/* ---------- the stepper ----------
+
+   Four states of one order, drawn once and updated in place by order.js. */
+.stepper {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.stepper-item {
+  flex: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.stepper-dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.stepper-item.is-done .stepper-dot,
+.stepper-item.is-active .stepper-dot {
+  border-color: var(--green);
+  color: var(--green-soft);
+}
+
+.stepper-item.is-active .stepper-dot {
+  background: var(--green);
+  color: #06210b;
+}
+
+.stepper-item.is-active { color: var(--text); }
+
+/* ---------- payment ---------- */
+
+.payment-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.payment-method-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.payment-method {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.payment-method.is-selected {
+  border-color: var(--green);
+  background: rgba(63, 170, 77, 0.12);
+  color: var(--green-soft);
+}
+
+.payment-method.is-disabled { opacity: 0.5; }
+
+.bonus-note {
+  margin-bottom: 0.85rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(63, 170, 77, 0.1);
+  color: var(--green-soft);
+  font-size: 0.82rem;
+}
+
+.bank-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.bank-card {
+  padding: clamp(0.85rem, 1.8vw, 1.1rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--skin);
+}
+
+.bank-card-name {
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.copy-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.copy-row + .copy-row { box-shadow: 0 -1px 0 var(--line); }
+
+.copy-row strong {
+  flex: 1;
+  color: var(--text);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.88rem;
+  text-align: right;
+  word-break: break-all;
+}
+
+.copy-btn {
+  flex: none;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.copy-btn:hover { background: var(--skin-lift); }
+
+/* ---------- file upload ---------- */
+
+.file-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.file-button {
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.file-button:hover { background: var(--skin-lift); }
+
+/* Keyboard focus lands on the hidden input, so the visible control has to
+   show it — otherwise the upload step is invisible to a keyboard user. */
+.file-input:focus-visible + .file-button {
+  outline: 2px solid var(--green-soft);
+  outline-offset: 3px;
+}
+
+.file-name {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* ---------- lists ---------- */
+
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.chip:hover { background: var(--skin-lift); color: var(--text); }
+
+.chip[aria-checked="true"] {
+  border-color: var(--green);
+  background: rgba(63, 170, 77, 0.12);
+  color: var(--green-soft);
+}
+
+.chip-count {
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.list-summary {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.data-list { display: grid; gap: 0.5rem; }
+
+/* One row of a list — an order, a gift card, a discounted package. A button
+   where it opens into the detail dialog, a plain div where it does not. */
+.data-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  width: 100%;
+  padding: clamp(0.8rem, 1.6vw, 1.05rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--skin);
+  color: inherit;
+  text-align: left;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.data-list .data-row + .data-row { margin-top: 0; }
+
+button.data-row { cursor: pointer; }
+
+button.data-row:hover {
+  background: var(--skin-lift);
+  border-color: var(--line-strong);
+}
+
+/* Something is waiting on the buyer — a transfer to make, a receipt to send.
+   The row says so before it is opened. */
+.data-row.is-actionable { border-color: rgba(215, 165, 63, 0.45); }
+
+.data-row[data-tone="ok"] { border-color: rgba(63, 170, 77, 0.35); }
+
+.data-row-main {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.data-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.data-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.data-row-side {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.data-row-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-row-note {
+  flex-basis: 100%;
+  color: #e5a091;
+  font-size: 0.78rem;
+}
+
+.ref-code {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.list-more {
+  margin-top: 0.75rem;
+  text-align: center;
+}
+
+.package-summary {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* ---------- stats ---------- */
+
+.stat-hero {
+  display: grid;
+  gap: 0.25rem;
+  padding: clamp(1rem, 2vw, 1.4rem);
+  border: 1px solid rgba(63, 170, 77, 0.35);
+  border-radius: var(--r-card);
+  background: rgba(63, 170, 77, 0.08);
+}
+
+.stat-hero-label { color: var(--muted); font-size: 0.8rem; }
+
+.stat-hero-value {
+  color: var(--green-soft);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.stat-hero-note { color: var(--muted); font-size: 0.76rem; }
+
+.stat-grid {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin-top: 0.75rem;
+}
+
+.stat-tile {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--skin);
+  text-align: center;
+}
+
+.stat-tile-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile-label { color: var(--muted); font-size: 0.74rem; }
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.profile-row + .profile-row { box-shadow: 0 -1px 0 var(--line); }
+
+.profile-row strong { color: var(--text); }
+
+.profile-list { display: grid; }
+
+/* ---------- states ----------
+
+   Empty, loading and failed, from the shared renderers in common/dom.js. */
+.state {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  color: var(--muted);
+  text-align: center;
+}
+
+.state-inline { padding: clamp(1rem, 2.5vw, 1.5rem); }
+
+.state-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.state-title { color: var(--text); font-weight: 700; }
+
+.state-body { font-size: 0.84rem; line-height: 1.6; }
+
+.state-error { border-color: rgba(224, 139, 122, 0.4); }
+
+.state-error .state-icon { border-color: rgba(224, 139, 122, 0.5); color: #e5a091; }
+
+.skeleton-list { display: grid; gap: 0.5rem; }
+
+.skeleton {
+  border-radius: var(--r-card);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  background-size: 200% 100%;
+  animation: mm-shimmer 1.4s linear infinite;
+}
+
+.skeleton-row { height: 4.25rem; }
+
+.skeleton-tile { height: 6rem; }
+
+/* ---------- gates ----------
+
+   A tab that is locked says what would unlock it, in the place the content
+   would have been. */
+.gate {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px dashed rgba(215, 165, 63, 0.45);
+  border-radius: var(--r-card);
+  background: rgba(215, 165, 63, 0.07);
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* ---------- account menu ----------
+
+   The pill in the top bar opens it. Same shape as the sign-in sheet, so the
+   two things the header can drop are recognisably one family. */
+.account {
+  position: relative;
+}
+
+.account-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 5px 1rem 5px 5px;
+  border-radius: 999px;
+  background: #fff;
+  color: #16171a;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.account-badge {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #16171a;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.account-chevron {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s ease;
+}
+
+.account-trigger[aria-expanded="true"] .account-chevron { transform: rotate(180deg); }
+
+.account-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.6rem);
+  z-index: 20;
+  width: min(320px, calc(100vw - 2rem));
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: #232423;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+}
+
+.level-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 0.9rem;
+}
+
+.level-ring { flex: none; }
+
+.level-ring .track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 6;
+}
+
+.level-ring .fill {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.level-ring-label {
+  fill: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.level-info { display: grid; gap: 0.15rem; }
+
+.level-info span { color: var(--muted); font-size: 0.78rem; }
+
+/* ---------- order detail ---------- */
+
+.detail-dialog {
+  width: min(480px, calc(100vw - 2rem));
+  padding: clamp(1.25rem, 3vw, 1.85rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: #232423;
+  color: var(--text);
+}
+
+.detail-dialog::backdrop {
+  background: rgba(10, 11, 10, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.detail-kind {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--green-soft);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detail-note {
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(224, 139, 122, 0.1);
+  color: #e5a091;
+  font-size: 0.82rem;
+}
+
+.detail-list {
+  display: grid;
+  margin: 0;
+}
+
+.detail-list div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  font-size: 0.85rem;
+}
+
+.detail-list div + div { box-shadow: 0 -1px 0 var(--line); }
+
+.detail-list dt { color: var(--muted); }
+
+.detail-list dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
+}
+
+.detail-actions .btn { flex: 1; }
+
+/* ---------- the package picker ----------
+
+   Rendered by packages.js through the same function that draws the front
+   door's ladder, so it arrives with that ladder's class names. Dressing them
+   here rather than changing the renderer is what keeps the price a buyer was
+   shown before signing in identical to the one they are charged after — one
+   renderer, two skins. */
+.package-picker { display: grid; gap: 0.5rem; }
+
+.topup-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: clamp(0.7rem, 1.4vw, 0.95rem) clamp(0.85rem, 1.6vw, 1.15rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--skin);
+  color: inherit;
+  text-align: left;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.topup-row:hover { background: var(--skin-lift); }
+
+/* The chosen row. A border rather than a fill: the list is read as a column of
+   prices, and a filled row reads as a different kind of object from the ones
+   above and below it. */
+.topup-row.is-picked {
+  border-color: var(--green);
+  background: rgba(63, 170, 77, 0.1);
+}
+
+.topup-price {
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.topup-robux {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-width: 108px;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.topup-coin { width: 1.1em; height: 1.1em; flex: none; }
+
+.topup-coin .coin-body { fill: var(--gold); }
+
+.topup-coin .coin-stud { fill: var(--gold-deep); }
+
+.topup-off {
+  position: absolute;
+  right: 0.7rem;
+  bottom: -0.3rem;
+  color: var(--green-soft);
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+/* Cheapest per Robux, computed by topup.js rather than flagged by an admin, so
+   it can never disagree with the prices beside it. */
+.topup-row.is-best::after {
+  content: "Хамгийн ашигтай";
+  position: absolute;
+  top: -0.55rem;
+  left: 0.9rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--green);
+  color: #06210b;
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.payment-panel { margin-top: 1.25rem; }
+
+/* ---------- foot ----------
+
+   The public pages get this from pages.css, which the workspace does not
+   load. Repeated rather than shared because the two files are otherwise
+   independent, and the alternative — a third stylesheet holding four rules —
+   is more moving parts than it saves. */
+.page-foot {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 3vw, 2rem) var(--gutter) clamp(2rem, 4vw, 3rem);
+  border-top: 1px solid var(--line);
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 0.76rem;
+}
+
+.page-foot a { color: var(--muted); text-decoration: none; }
+
+.page-foot a:hover { color: var(--text); }
+
+.page-foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin-top: 0.5rem;
+}
+
+body.has-tabbar .page-foot { padding-bottom: 6rem; }
+
+/* ---------- narrow ----------
+
+   The tab row becomes the bottom bar. body.has-tabbar — set by gates.js —
+   reserves the height it takes, so the last row of a panel is never stuck
+   underneath it. */
+@media (max-width: 760px) {
+  .tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    gap: 0;
+    margin: 0;
+    padding: 0.4rem 0.35rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    background: rgba(24, 25, 24, 0.95);
+    backdrop-filter: blur(18px);
+  }
+
+  .tab {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.45rem 0.2rem;
+    font-size: 0.65rem;
+  }
+
+  .tab[aria-selected="true"] {
+    background: none;
+    color: var(--green-soft);
+  }
+
+  .tab-label { display: none; }
+
+  .tab-short { display: block; }
+
+  .tab-count,
+  .tab-pip {
+    position: absolute;
+    top: 0.15rem;
+    right: 50%;
+    transform: translateX(1.1rem);
+  }
+
+  body.has-tabbar .app-shell { padding-bottom: 5.5rem; }
+
+  .line-item-total strong { font-size: 1.2rem; }
+}

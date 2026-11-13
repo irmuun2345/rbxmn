@@ -8,7 +8,7 @@
     "migrate": "node scripts/migrate.js",
     "vercel-build": "node scripts/migrate.js",
     "import-sqlite": "node scripts/import-sqlite.js",
-    "test": "node tests/oauth-auth-test.js && node tests/pricing-settings-test.js && node tests/event-window-test.js && node tests/payout-safety-test.js && node tests/delivery-message-test.js && node tests/group-join-date-test.js && node tests/bot-2fa-test.js && node tests/bank-accounts-test.js && node tests/gift-card-redemption-test.js && node tests/gift-card-amount-test.js && node tests/auth-hardening-test.js && node tests/payment-matching-test.js && node tests/referral-cap-test.js && node tests/order-stats-test.js && node tests/sales-search-test.js && node tests/security-test.js",
+    "test": "node tests/oauth-auth-test.js && node tests/pricing-settings-test.js && node tests/event-window-test.js && node tests/payout-safety-test.js && node tests/delivery-message-test.js && node tests/manual-route-test.js && node tests/group-join-date-test.js && node tests/bot-2fa-test.js && node tests/bank-accounts-test.js && node tests/gift-card-redemption-test.js && node tests/gift-card-amount-test.js && node tests/auth-hardening-test.js && node tests/payment-matching-test.js && node tests/referral-cap-test.js && node tests/order-stats-test.js && node tests/sales-search-test.js && node tests/security-test.js",
     "diagnose:group": "node scripts/diagnose-group.js"
   },
   "keywords": [],

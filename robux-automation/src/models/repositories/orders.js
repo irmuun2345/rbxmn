@@ -116,6 +116,33 @@ module.exports = (db) => ({
     );
   },
 
+  // An order an admin delivers by hand after the buyer messages us on
+  // Messenger. Same columns as a group order; only the method differs.
+  createManualOrder: (userId, desiredRobux, amountMnt, ratePer100Mnt, paymentReference, deliveredRobux, bonusPercent, callback) => {
+    const sql = `INSERT INTO game_passes
+      (user_id, name, description, price, listed_price, amount_mnt, rate_per_100_mnt,
+       payment_reference, delivered_robux, bonus_percent, delivery_method, status)
+      VALUES (?, 'Manual delivery', 'Robux delivered by hand via Messenger', ?, ?, ?, ?, ?, ?, ?, 'manual', '${ORDER_STATUS.AWAITING_PAYMENT}')`;
+    db.run(
+      sql,
+      [userId, desiredRobux, deliveredRobux, amountMnt, ratePer100Mnt, paymentReference, deliveredRobux, bonusPercent],
+      function(err) {
+        callback(err, err ? null : {
+          id: this.lastID,
+          userId,
+          price: desiredRobux,
+          amountMnt,
+          ratePer100Mnt,
+          paymentReference,
+          deliveredRobux,
+          bonusPercent,
+          deliveryMethod: 'manual',
+          status: ORDER_STATUS.AWAITING_PAYMENT
+        });
+      }
+    );
+  },
+
   createGroupOrder: (userId, desiredRobux, amountMnt, ratePer100Mnt, paymentReference, deliveredRobux, bonusPercent, callback) => {
     const sql = `INSERT INTO game_passes
       (user_id, name, description, price, listed_price, amount_mnt, rate_per_100_mnt,

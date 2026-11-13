@@ -1,0 +1,513 @@
+/* pages.css — the content pages: /giftcards, /invite, /faq and /promos.
+ *
+ * Loaded *after* main-menu.css, which stays the design system: the palette,
+ * the top bar, the rail, the glass panel, the pill buttons and the sign-in
+ * sheet are all defined there and simply reused here. This file adds only
+ * what a page of content needs and the front door did not: a page header, a
+ * column to read in, and the four or five objects the copy is made of.
+ *
+ * The front door is one screen with three overlapping layers. These pages are
+ * the opposite shape — a single centred column that scrolls — so they do not
+ * inherit the stage's grid at all. What they do inherit is everything a
+ * visitor recognises: the same charcoal, the same rings, the same rail in the
+ * same place.
+ */
+
+/* ---------- the column ----------
+
+   Narrower than the shell the front door uses. Prose has an upper bound that
+   has nothing to do with the width of the screen, and the rail wants the left
+   gutter to itself. */
+.page-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 940px;
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2.5rem) var(--gutter) clamp(4rem, 8vw, 7rem);
+}
+
+/* Clears the fixed rail. Only from the width where the rail is fixed — below
+   that it is an ordinary row above the content and needs no room made for it. */
+@media (min-width: 1081px) {
+  .page-shell { padding-left: calc(var(--gutter) + 5.5rem); }
+}
+
+.page-head {
+  max-width: 30rem;
+  margin-bottom: clamp(1.75rem, 4vw, 3rem);
+}
+
+.page-eyebrow {
+  display: block;
+  margin-bottom: 0.6rem;
+  color: var(--green-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.page-title {
+  color: var(--text);
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+/* The ringed phrase from the front door, at body scale. It is the one piece
+   of the claim that travels: a page whose heading carries the same green
+   outline is recognisably the same shop. */
+.page-title .mm-mark {
+  border-width: 2px;
+  padding: 0.02em 0.35em 0.08em;
+}
+
+.page-lede {
+  margin-top: 0.9rem;
+  color: var(--muted);
+  font-size: clamp(0.95rem, 1.4vw, 1.08rem);
+  line-height: 1.6;
+}
+
+/* ---------- panels ----------
+
+   The same glass as the front door's price panel, at two sizes: a card for
+   one idea, a band for a row of them. */
+.card {
+  padding: clamp(1.25rem, 2.4vw, 2rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025) 45%),
+    rgba(28, 29, 28, 0.55);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.card-title {
+  margin-bottom: 0.75rem;
+  font-size: clamp(1.1rem, 1.8vw, 1.4rem);
+  font-weight: 700;
+}
+
+.card p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.card p + p { margin-top: 0.7rem; }
+
+.grid {
+  display: grid;
+  gap: clamp(0.85rem, 1.8vw, 1.35rem);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.section-gap { margin-top: clamp(2rem, 5vw, 3.5rem); }
+
+.section-title {
+  margin-bottom: clamp(1rem, 2vw, 1.5rem);
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
+  font-weight: 700;
+}
+
+/* ---------- numbered steps ----------
+
+   Three of them, always. The number is the object here — it is what says this
+   is a sequence and not a list of features — so it is set in the green, at the
+   size of the heading beside it. */
+.steps {
+  display: grid;
+  gap: clamp(0.75rem, 1.6vw, 1.1rem);
+  counter-reset: step;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 1rem;
+  padding: clamp(0.9rem, 1.8vw, 1.25rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--skin);
+}
+
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid rgba(63, 170, 77, 0.5);
+  border-radius: 50%;
+  color: var(--green-soft);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.step h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.step p {
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* ---------- figures ----------
+
+   The number a page is really about — a bonus percentage, a commission — set
+   large enough to be the thing you take away from the page. */
+.figures {
+  display: grid;
+  gap: clamp(0.85rem, 1.8vw, 1.25rem);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.figure {
+  padding: clamp(1.1rem, 2.2vw, 1.6rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--skin);
+  text-align: center;
+}
+
+.figure-value {
+  display: block;
+  color: var(--green-soft);
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.figure-label {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* ---------- the gift card ----------
+
+   A picture of the thing being sold, and it says so: the code on it is not a
+   real code and nothing about it is fetched. */
+.gift-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(1.1rem, 2.4vw, 1.6rem);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--r-card);
+  background:
+    radial-gradient(120% 90% at 15% 0%, rgba(63, 170, 77, 0.28), transparent 60%),
+    linear-gradient(150deg, #2b2d2b, #1c1d1c);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.45);
+}
+
+.gift-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.gift-card-brand { display: flex; align-items: center; gap: 0.5rem; }
+
+.gift-card-brand img { width: 26px; height: auto; }
+
+.gift-card-amount {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.gift-card-amount .mm-coin { width: 1em; height: 1em; }
+
+.gift-card-code {
+  padding: 0.6rem 0.9rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.92rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.gift-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+/* ---------- split ----------
+
+   Art on one side, words on the other, and one column at phone width. */
+.split {
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 2.25rem);
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (max-width: 760px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- FAQ ----------
+
+   <details> doing the work, so a question is open on a page loaded with the
+   keyboard, findable by the browser's own find-in-page, and readable with no
+   JavaScript at all. */
+.faq {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.faq-item {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--skin);
+}
+
+.faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(0.9rem, 1.8vw, 1.15rem);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.faq-item summary::-webkit-details-marker { display: none; }
+
+.faq-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--green-soft);
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.faq-item[open] .faq-mark { transform: rotate(45deg); }
+
+.faq-body {
+  padding: 0 clamp(0.9rem, 1.8vw, 1.15rem) clamp(0.9rem, 1.8vw, 1.15rem);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+/* ---------- events ----------
+
+   One row per event, live ones first. The countdown is the point of the row,
+   so it is the only thing on it set in the green. */
+.event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  padding: clamp(0.95rem, 2vw, 1.35rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--skin);
+}
+
+.event + .event { margin-top: 0.7rem; }
+
+.event.is-live { border-color: rgba(63, 170, 77, 0.45); }
+
+.event-main strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.event-main small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.event-side {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.event-bonus {
+  color: var(--green-soft);
+  font-size: clamp(1.2rem, 2.4vw, 1.6rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.badge.is-live {
+  border-color: rgba(63, 170, 77, 0.5);
+  background: rgba(63, 170, 77, 0.12);
+  color: var(--green-soft);
+}
+
+/* ---------- states ----------
+
+   What a list says when it is empty, loading or broken. All three are one
+   object, because all three are the same sentence in different moods. */
+.state {
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.state strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.state button {
+  margin-top: 0.75rem;
+  color: var(--green-soft);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* ---------- actions ---------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: clamp(1.25rem, 2.5vw, 1.75rem);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.5rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.btn:hover { transform: translateY(-1px); }
+
+.btn-primary {
+  background: var(--green);
+  color: #06210b;
+}
+
+.btn-primary:hover { background: var(--green-soft); }
+
+.btn-ghost {
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+}
+
+.btn-ghost:hover { background: var(--skin-lift); }
+
+/* ---------- foot ---------- */
+
+.page-foot {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 3vw, 2rem) var(--gutter) clamp(2rem, 4vw, 3rem);
+  border-top: 1px solid var(--line);
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 0.76rem;
+}
+
+@media (min-width: 1081px) {
+  .page-foot { padding-left: calc(var(--gutter) + 5.5rem); }
+}
+
+.page-foot a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.page-foot a:hover { color: var(--text); }
+
+.page-foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin-top: 0.5rem;
+}
+
+/* ---------- the rail, pinned ----------
+
+   On the front door the rail sits at the foot of the stage, because the stage
+   is exactly one screen. These pages scroll, so it is fixed instead: the same
+   four buttons in the same place, still there when the copy runs long. */
+@media (min-width: 1081px) {
+  .mm-rail.is-fixed {
+    position: fixed;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+}
+
+@media (max-width: 1080px) {
+  .mm-rail.is-fixed {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+  }
+
+  .mm-rail.is-fixed .mm-rail-link::after { display: none; }
+}
+
+/* A ladder row that is a link rather than a button — the discounted packages
+   on /promos, which lead to the front door where they can actually be bought. */
+a.mm-row {
+  color: inherit;
+  text-decoration: none;
+}

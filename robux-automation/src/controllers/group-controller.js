@@ -1,5 +1,13 @@
 const { checkEligibility } = require('../services/group-eligibility');
 const { isGamePassRouteEnabled } = require('../services/gamepass-route');
+const { messengerUrl } = require('../services/manual-route');
+
+// Where a buyer goes when the group payout cannot serve them yet. The Game
+// Pass route while it is open; otherwise the manual Messenger route, which
+// has no precondition at all — see services/manual-route.js.
+function fallbackRoute() {
+  return isGamePassRouteEnabled() ? 'gamepass' : 'manual';
+}
 
 // The buyer-facing side of the membership clock. Its whole reason for
 // existing is that the 14-day requirement is unsatisfiable on demand: someone
@@ -110,10 +118,11 @@ class GroupController {
 
       const groupId = await this.getSettingValue('group_id');
       if (!groupId) {
-        // No group configured at all, so Gamepass is the only thing we can do.
+        // No group configured at all, so the group payout is not an option.
         return res.json({
           success: true,
-          route: 'gamepass',
+          route: fallbackRoute(),
+          messengerUrl: messengerUrl(),
           reason: 'group_not_configured',
           setup: null,
           gamepass
@@ -130,7 +139,10 @@ class GroupController {
       // case in which a URL is sent, and nothing else about the group ever is.
       res.json({
         success: true,
-        route: eligibility.eligible ? 'group' : 'gamepass',
+        route: eligibility.eligible ? 'group' : fallbackRoute(),
+        // Also sent to group-eligible buyers: an older manual order of theirs
+        // can still be reopened from the history.
+        messengerUrl: messengerUrl(),
         reason: eligibility.eligible ? 'eligible_for_group' : eligibility.reason,
         setup: eligibility.isMember
           ? null
@@ -139,11 +151,12 @@ class GroupController {
       });
     } catch (error) {
       console.error('Get fulfillment route error:', error);
-      // A Roblox outage shouldn't block ordering — fall back to the route
-      // that has no external precondition.
+      // A Roblox outage shouldn't block ordering — fall back to a route
+      // that does not need Roblox to answer.
       res.json({
         success: true,
-        route: 'gamepass',
+        route: fallbackRoute(),
+        messengerUrl: messengerUrl(),
         reason: 'eligibility_check_failed',
         setup: null
       });

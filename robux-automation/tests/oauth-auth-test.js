@@ -74,7 +74,7 @@ async function testAuthorizationUrl() {
     assert.equal(url.pathname, '/oauth/v1/authorize');
     assert.equal(url.searchParams.get('client_id'), 'test-client-id');
     assert.equal(url.searchParams.get('redirect_uri'), process.env.ROBLOX_OAUTH_REDIRECT_URI);
-    assert.equal(url.searchParams.get('scope'), 'openid profile game-pass:write');
+    assert.equal(url.searchParams.get('scope'), 'openid profile game-pass:write universe:write');
     assert.equal(url.searchParams.get('response_type'), 'code');
     assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
     assert.equal(url.searchParams.get('state'), 'test-session.test-state');
@@ -278,10 +278,15 @@ async function runGamePassOrderChecks() {
       callback(null, { id: 41 });
     }
   };
+  let universeState = { visibility: 'PUBLIC', ageRating: 'AGE_RATING_17_PLUS' };
   const oauth = {
     async createGamePass(request) {
       apiRequest = request;
       return { gamePassId: '987654321', price: request.price };
+    },
+    async getUniverse() {
+      if (universeState instanceof Error) throw universeState;
+      return universeState;
     }
   };
   const controller = new GamePassController(dbHelpers, oauth);
@@ -384,6 +389,99 @@ async function runGamePassOrderChecks() {
   }, ambiguousResponse);
   assert.equal(ambiguousResponse.statusCode, 400);
   assert.equal(ambiguousResponse.body.reason, 'universe_required');
+
+  // The experience has to be public and rated 16+ before a pass is created on
+  // it. Each refusal must happen before Roblox is asked to create anything.
+  const readySession = {
+    userId: 7,
+    robloxAccessToken: 'token',
+    robloxAccessTokenExpiresAt: Date.now() + 60_000,
+    authorizedUniverseIds: ['3828411582']
+  };
+  const notReadyCases = [
+    [{ visibility: 'PRIVATE', ageRating: 'AGE_RATING_17_PLUS' }, ['public']],
+    [{ visibility: 'PUBLIC', ageRating: 'AGE_RATING_13_PLUS' }, ['questionnaire']],
+    [{ visibility: 'PRIVATE', ageRating: 'AGE_RATING_UNSPECIFIED' }, ['questionnaire', 'public']]
+  ];
+  for (const [universe, missing] of notReadyCases) {
+    universeState = universe;
+    apiRequest = null;
+    const notReady = createResponse();
+    await controller.createGamePass({ body: { packageId: 3 }, session: readySession }, notReady);
+    assert.equal(notReady.statusCode, 409);
+    assert.equal(notReady.body.reason, 'experience_not_ready');
+    assert.deepEqual(notReady.body.readiness.missing, missing);
+    assert.equal(apiRequest, null, 'no pass may be created on an unready experience');
+  }
+
+  // Cannot tell is not ready: fail closed.
+  universeState = new Error('Roblox down');
+  apiRequest = null;
+  const unknown = createResponse();
+  await controller.createGamePass({ body: { packageId: 3 }, session: readySession }, unknown);
+  assert.equal(unknown.statusCode, 502);
+  assert.equal(apiRequest, null);
+
+  // A 16+ bracket, if Roblox reports one, is accepted as-is.
+  universeState = { visibility: 'PUBLIC', ageRating: 'AGE_RATING_16_PLUS' };
+  const sixteen = createResponse();
+  await controller.createGamePass({ body: { packageId: 3 }, session: readySession }, sixteen);
+  assert.equal(sixteen.statusCode, 200);
+
+  // The readiness endpoint only ever looks up universes this session holds.
+  const readinessResponse = createResponse();
+  await controller.getExperienceReadiness({ query: { universeId: '999' }, session: readySession }, readinessResponse);
+  assert.equal(readinessResponse.statusCode, 403);
+
+  const listResponse = createResponse();
+  await controller.getExperienceReadiness({ query: {}, session: readySession }, listResponse);
+  assert.equal(listResponse.body.experiences.length, 1);
+  assert.equal(listResponse.body.experiences[0].ready, true);
+
+  // make-public (experiment): refuses before the questionnaire, never PATCHes
+  // a universe outside the grant, and judges success by re-reading Roblox.
+  let patched = 0;
+  oauth.setUniversePublic = async () => {
+    patched += 1;
+    universeState = { ...universeState, visibility: 'PUBLIC' };
+    return {};
+  };
+
+  const outsideGrant = createResponse();
+  await controller.makeExperiencePublic({ body: { universeId: '999' }, session: readySession }, outsideGrant);
+  assert.equal(outsideGrant.statusCode, 403);
+
+  universeState = { visibility: 'PRIVATE', ageRating: 'AGE_RATING_UNSPECIFIED' };
+  const unrated = createResponse();
+  await controller.makeExperiencePublic({ body: { universeId: '3828411582' }, session: readySession }, unrated);
+  assert.equal(unrated.statusCode, 409);
+  assert.equal(unrated.body.reason, 'questionnaire_required');
+  assert.equal(patched, 0);
+
+  universeState = { visibility: 'PRIVATE', ageRating: 'AGE_RATING_17_PLUS' };
+  const flipped = createResponse();
+  await controller.makeExperiencePublic({ body: { universeId: '3828411582' }, session: readySession }, flipped);
+  assert.equal(flipped.statusCode, 200);
+  assert.equal(flipped.body.readiness.ready, true);
+  assert.equal(patched, 1);
+
+  // Roblox accepting the PATCH but nothing changing is reported, not trusted.
+  oauth.setUniversePublic = async () => ({});
+  universeState = { visibility: 'PRIVATE', ageRating: 'AGE_RATING_17_PLUS' };
+  const noEffect = createResponse();
+  await controller.makeExperiencePublic({ body: { universeId: '3828411582' }, session: readySession }, noEffect);
+  assert.equal(noEffect.body.reason, 'make_public_no_effect');
+
+  // A refusal (e.g. scope missing) falls back to the manual instruction.
+  oauth.setUniversePublic = async () => {
+    const error = new Error('forbidden');
+    error.response = { status: 403, data: { message: 'insufficient scope' } };
+    throw error;
+  };
+  const refused = createResponse();
+  await controller.makeExperiencePublic({ body: { universeId: '3828411582' }, session: readySession }, refused);
+  assert.equal(refused.statusCode, 403);
+  assert.equal(refused.body.reason, 'make_public_refused');
 }
 
 async function testSellerOwnershipVerification() {

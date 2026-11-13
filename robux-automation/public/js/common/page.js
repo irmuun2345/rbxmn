@@ -53,7 +53,13 @@ export function initStickyHeader() {
 // becomes "current" when it is what you are actually looking at rather than
 // the instant its top edge appears.
 export function initScrollSpy() {
-  const links = [...document.querySelectorAll('.nav-links .nav-link[href^="#"]')];
+  // Two shapes, one job. The header keeps a horizontal strip of .nav-link on
+  // pages that still have one; the storefront's landing page moved the same
+  // anchors into the icon rail down the left edge. Both are matched here so
+  // the highlight follows whichever one the page actually drew.
+  const links = [...document.querySelectorAll(
+    '.nav-links .nav-link[href^="#"], .rail .rail-link[href^="#"]'
+  )];
   if (!links.length || !('IntersectionObserver' in window)) return;
 
   const byId = new Map();

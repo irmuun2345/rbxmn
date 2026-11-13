@@ -5,11 +5,19 @@
 // summary of the other — a visitor deciding whether to sign up should see
 // exactly what a signed-in customer sees.
 
-import { $, escapeHtml, renderLoading, renderEmpty, renderError } from '../common/dom.js';
+import { $, setHidden, escapeHtml, renderLoading, renderEmpty, renderError } from '../common/dom.js';
 import { request } from '../common/api.js';
 import { formatMnt, formatNumber, formatEventDate, formatClock, formatDuration } from '../common/format.js';
 
 let eventsLoaded = false;
+
+// The dot on the header bell. Both /events and /event-status can raise it and
+// only the countdown can lower it, so it goes through one function rather
+// than being poked from two places that would eventually disagree.
+function setBellPip(on) {
+  const pip = $('bell-pip');
+  if (pip) pip.hidden = !on;
+}
 
 const eventLists = () => document.querySelectorAll('[data-events-list]');
 const dealLists = () => document.querySelectorAll('[data-event-deals]');
@@ -56,7 +64,7 @@ export async function loadEvents({ force = false } = {}) {
 
     // A live event puts a pip on the tab so it is discoverable without
     // opening it — rather the point of a time-boxed promotion.
-    $('tab-events-pip').hidden = !data.events.some((event) => event.live);
+    setHidden('tab-events-pip', !data.events.some((event) => event.live));
 
     const now = Date.now();
     if (data.events.length) {
@@ -71,8 +79,8 @@ export async function loadEvents({ force = false } = {}) {
     }
 
     const deals = data.discountedPackages;
-    $('event-deals-panel').hidden = !deals.length;
-    $('landing-deals-panel').hidden = !deals.length;
+    setHidden('event-deals-panel', !deals.length);
+    setHidden('landing-deals-panel', !deals.length);
     writeAll(dealLists(), deals.map((pkg) => `
       <div class="data-row" data-tone="ok">
         <span class="data-row-main">
@@ -90,7 +98,25 @@ export async function loadEvents({ force = false } = {}) {
 
     // An empty promotions block on the landing page is worse than none: it
     // reads as something that failed to load. Nothing running, nothing shown.
-    $('promos').hidden = !data.events.length && !deals.length;
+    const anything = data.events.length > 0 || deals.length > 0;
+    setHidden('promos', !anything);
+
+    // The card leaning on the price panel points at that same block, so it
+    // appears and disappears with it — and it names what is actually on
+    // rather than saying "Урамшуулал" over nothing. Both are guarded: the
+    // Events tab renders through this function too, and the workspace has
+    // neither element.
+    const card = $('promo-card');
+    if (card) {
+      card.hidden = !anything;
+      const live = data.events.find((event) => event.live);
+      $('promo-card-note').textContent = live
+        ? `+${Number(live.bonusPercent)}% бонус`
+        : (deals.length ? `${deals.length} хямдралтай багц` : 'Удахгүй');
+    }
+
+    // A live promotion is the only thing the bell in the header has to say.
+    setBellPip(data.events.some((event) => event.live) || deals.length > 0);
   } catch {
     stateAll(eventLists(), (node) => renderError(node, {
       title: 'Эвентүүд ачаалагдсангүй',
@@ -108,13 +134,15 @@ export async function loadEventStatus() {
     $('event-name').textContent = data.name;
     $('event-bonus').textContent = `+${data.bonusPercent}%`;
     $('event-banner').hidden = false;
-    $('tab-events-pip').hidden = false;
+    setHidden('tab-events-pip', false);
+    setBellPip(true);
 
     const endsAt = new Date(data.endsAt).getTime();
     const tick = () => {
       const remaining = endsAt - Date.now();
       if (remaining <= 0) {
         $('event-banner').hidden = true;
+        setBellPip(false);
         clearInterval(timer);
         return;
       }

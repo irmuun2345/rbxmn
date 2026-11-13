@@ -7,25 +7,120 @@
    Admin
    ============================================================ */
 
-.admin-shell {
-  padding: 2.6rem 0 5rem;
+/* Sidebar menu beside one view at a time — see js/admin/nav.js. The menu
+   sticks under the topbar on a desktop and becomes a scrolling strip on a
+   phone (bottom of this file). */
+.admin-layout {
+  display: grid;
+  padding: 2rem 0 5rem;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.admin-nav {
+  position: sticky;
+  top: calc(var(--topbar-h) + 1.2rem);
+  display: flex;
+  padding: 0.9rem;
+  flex-direction: column;
+  gap: 1.1rem;
+  border: var(--stroke) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  box-shadow: var(--shadow);
+}
+
+.admin-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.admin-nav-label {
+  margin: 0 0 0.3rem;
+  padding: 0 0.7rem;
+  color: var(--faint);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-nav-link {
+  display: flex;
+  min-height: 42px;
+  padding: 0.55rem 0.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-radius: var(--radius-xs);
+  color: var(--dim);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.admin-nav-link:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.admin-nav-link[aria-current="page"] {
+  color: var(--text);
+  background: var(--venom-soft);
+  box-shadow: inset 3px 0 0 var(--venom);
+}
+
+.admin-nav-count {
+  min-width: 1.5rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-pill);
+  color: #000;
+  background: var(--warn);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.admin-nav-store {
+  width: 100%;
+}
+
+.admin-main {
+  min-width: 0;
+}
+
+.admin-main:focus {
+  outline: none;
 }
 
 .admin-heading {
   display: flex;
-  margin-bottom: 1.8rem;
+  margin-bottom: 1.4rem;
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
 }
 
-/* Separates the configuration half of the admin page from the queue above
-   it, which is otherwise just more panels in the same stack. */
-.admin-subheading {
-  margin-top: 3rem;
-  padding-top: 1.8rem;
-  border-top: 1px solid var(--border);
+.admin-heading-sub {
+  margin: 0.3rem 0 0;
+  color: var(--dim);
+  font-size: 0.95rem;
+}
+
+/* Cards in a view stack with room between them; a view with three settings
+   cards should read as three things, not one long form. */
+.admin-card + .admin-card,
+.stat-strip + .admin-card {
+  margin-top: 1.4rem;
+}
+
+.admin-card .field-spaced {
+  margin-top: 1.4rem;
 }
 
 .stat-strip {
@@ -68,48 +163,6 @@
   letter-spacing: -0.03em;
 }
 
-details.stub-toggle {
-  margin-top: 1rem;
-  border: var(--stroke) solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-details.stub-toggle summary {
-  display: flex;
-  padding: 0.9rem 1.1rem;
-  align-items: center;
-  justify-content: space-between;
-  list-style: none;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-details.stub-toggle summary::-webkit-details-marker {
-  display: none;
-}
-
-details.stub-toggle summary::after {
-  color: var(--faint);
-  content: "+";
-  font-size: 1.1rem;
-}
-
-details[open].stub-toggle summary::after {
-  content: "\2212";
-}
-
-.details-body {
-  border-top: 1px solid var(--border);
-  padding: 1.1rem;
-}
-
-.ledger-section {
-  margin-top: 1.2rem;
-}
-
 /* .editable-list / .editable-row live in lists.css — the storefront renders
    its gift cards and event deals with the same rows. */
 
@@ -149,14 +202,18 @@ th {
 }
 
 td {
-  font-size: 0.86rem;
+  font-size: 0.92rem;
+}
+
+tbody tr:hover td {
+  background: var(--surface);
 }
 
 td small {
   display: block;
-  margin-top: 0.15rem;
+  margin-top: 0.2rem;
   color: var(--faint);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .action-buttons {
@@ -276,4 +333,88 @@ td small {
 
 .toolbar-search input {
   min-width: 0;
+}
+
+/* Phone and small tablet: the menu turns into a strip of pills that scrolls
+   sideways and stays pinned under the topbar, so switching screens never
+   means scrolling back to the top first. */
+@media (max-width: 900px) {
+  .admin-layout {
+    padding-top: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.2rem;
+  }
+
+  .admin-nav {
+    /* A grid item sizes to its content by default; without this the strip
+       widens the whole page instead of scrolling inside itself. */
+    min-width: 0;
+    top: var(--topbar-h);
+    z-index: 30;
+    margin: 0 -1.25rem;
+    padding: 0.6rem 1.25rem;
+    flex-direction: row;
+    gap: 0.4rem;
+    overflow-x: auto;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    background: rgba(11, 13, 11, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    scrollbar-width: none;
+  }
+
+  .admin-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-nav-group {
+    flex-direction: row;
+    gap: 0.4rem;
+  }
+
+  .admin-nav-label,
+  .admin-nav-store {
+    display: none;
+  }
+
+  .admin-nav-link {
+    min-height: 38px;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+    font-size: 0.88rem;
+  }
+
+  .admin-nav-link[aria-current="page"] {
+    border-color: var(--venom-line);
+    box-shadow: none;
+  }
+}
+
+/* Phone: each order is a card of label/value rows (responsive.css). A cell
+   holds several pieces — name and Roblox id, amount, status and code — and
+   as side-by-side flex items they ran off the right edge. Here the label
+   takes its own line and the pieces wrap under it. */
+@media (max-width: 620px) {
+  .admin-main td {
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.3rem 0.6rem;
+    text-align: left;
+  }
+
+  .admin-main td::before {
+    flex-basis: 100%;
+  }
+
+  .admin-main td small {
+    margin-top: 0;
+  }
+
+  .admin-main td.empty-cell::before {
+    content: none;
+  }
 }

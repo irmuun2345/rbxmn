@@ -8,6 +8,7 @@
 // protected by hiding it: every /admin route is behind requireAdminAuth
 // server-side, and a visitor who skips the redirect still gets 401s.
 
+import { initNav } from './nav.js';
 import { initAccount, loadAdminProfile } from './account.js';
 import { initBankAccounts, loadBankAccount } from './banking.js';
 import { initOrders, loadOrders, loadAutomationStatus } from './orders.js';
@@ -19,6 +20,7 @@ import { initSupport, loadPhoneLinks, loadGiftCards } from './support.js';
 import { initReferrals, loadReferralSettings, loadReferralCodes } from './referrals.js';
 import { initAudit, loadAuditLog } from './audit.js';
 
+initNav();
 initAccount();
 initBankAccounts();
 initOrders();

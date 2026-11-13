@@ -2,7 +2,7 @@
 
 MNT үнэтэй Robux захиалгын storefront болон админ дараалал. Хэрэглэгч Roblox OAuth 2.0-оор нэвтэрч, тогтмол багцаас сонгож, дотоодын банкны шилжүүлгээр төлнө. Админ төлбөрийг баталгаажуулсны дараа Robux хоёр замын аль нэгээр хүргэгдэнэ.
 
-Нууц үг болон `.ROBLOSECURITY` cookie хэрэглэгчээс **хэзээ ч** авахгүй. Roblox-ийн албан ёсны OAuth 2.0 (PKCE) л ашиглана.
+Нууц үг  хэрэглэгчээс **хэзээ ч** авахгүй. 
 
 Төслийг өөр эзэмшигч рүү шилжүүлж байгаа бол [HANDOFF.md](HANDOFF.md)-г үзнэ үү.
 
@@ -49,12 +49,14 @@ node src/utils/setup-admin.js admin "хамгийн-багадаа-12-тэмдэ
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token. Төлбөрийн баримт хадгална. **Vercel дээр заавал** — хоосон бол `uploads/receipts` рүү бичнэ |
 | `CRON_SECRET` | `/api/cron/group-orders`-ийн нууц үг. **Vercel дээр заавал** — байхгүй бол хүргэлтийн sweep хэзээ ч ажиллахгүй |
 | `SCHEMA_ON_BOOT` | `1` бол асах үед schema-г үүсгэнэ. Postgres дээр анхдагчаар унтраалттай (доорх тайлбарыг үзнэ үү) |
+| `GAMEPASS_ROUTE_ENABLED` | `1` бол Game Pass (pending) зам нээгдэнэ |
+| `GAMEPASS_MIN_AGE_RATING` | Хэрэглэгчийн тоглоомын шаардлагатай доод насны ангилал (default `16`). Тоглоом Public + энэ ангилалтай биш бол Game Pass үүсгэхгүй |
 | `PGLITE_PATH` | PGlite-ийн өгөгдлийг файлд хадгална. Тавихгүй бол in-memory (тест бүр цэвэр сангаас эхэлнэ) |
 
 ### Roblox OAuth тохиргоо
 
 1. Roblox Creator Dashboard-ийн **OAuth 2.0 Apps** хэсэгт апп үүсгэнэ.
-2. `openid`, `profile`, `game-pass:write` scope-уудыг нэмнэ.
+2. `openid`, `profile`, `game-pass:write`, `universe:write` scope-уудыг нэмнэ (`universe:write` нь хэрэглэгчийн тоглоомыг автоматаар Public болгох туршилт).
 3. Redirect URL дээр яг `http://localhost:3000/auth/roblox/callback` нэмнэ.
 4. Серверээ дахин асаана.
 
@@ -162,11 +164,23 @@ src/
     db.js                  # Композиц: бүгдийг нэг dbHelpers болгоно
 
 public/
-  index.html  admin.html  admin-login.html
-  css/                     # Нэг сэдэв = нэг файл. Дарааллыг HTML дотор бичсэн
+  index.html               # Нүүр: үнийн жагсаалт + гараас дүн оруулах
+  giftcards.html  invite.html  faq.html  promos.html    # Танилцуулга хуудсууд
+  app.html                 # Нэвтэрсэн хэсэг: захиалга, түүх, бэлгийн карт, урилга
+  admin.html  admin-login.html
+  css/
+    main-menu.css          # Дизайн систем: өнгө, толгой, rail, панел, нэвтрэх цонх
+    pages.css              # Танилцуулга хуудсуудын нэмэлт
+    app.css                # Нэвтэрсэн хэсэг (JS-ээс гардаг class-уудыг мөн энд)
+    tokens/base/…          # Зөвхөн админ самбар ашигладаг хуучин стек
   js/
-    common/                # dom · format · api · page (хоёр хуудсанд хуваалцана)
-    storefront/            # Дэлгүүрийн модулиуд + main.js
+    common/                # dom · format · api · page (бүх хуудас хуваалцана)
+    storefront/
+      shell.js             # Хуудас бүрийн толгой: хонх, Login, нэвтрэх цонх
+      main-menu.js         # Нүүрний үнийн жагсаалт
+      chrome.js            # Зөвхөн толгой хэрэгтэй хуудсууд (giftcards, faq)
+      invite-page.js  promos-page.js
+      app.js               # Нэвтэрсэн хэсгийн entry — модулиуд нь хуучнаараа
     admin/                 # Админ самбарын модулиуд + main.js
   shield.js                # Зөвхөн саад. Аюулгүй байдал биш (файлын толгойг уншина уу)
 ```

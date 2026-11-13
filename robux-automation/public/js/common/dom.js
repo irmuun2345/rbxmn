@@ -2,6 +2,21 @@
 
 export const $ = (id) => document.getElementById(id);
 
+// Show or hide an element that only exists on some of the pages.
+//
+// The storefront is more than one document now — the landing page, the
+// workspace and the content pages each carry a different subset of the same
+// ids — but the modules below are shared between them. Writing `.hidden`
+// straight onto $(id) throws the moment a module runs on a page that has no
+// such element, and one throw takes out every listener that module had left
+// to wire. This is the guarded form, for the ids that are genuinely
+// page-specific; an id every page is expected to carry is still written
+// directly, so a real typo still fails loudly.
+export function setHidden(id, hidden) {
+  const element = $(id);
+  if (element) element.hidden = hidden;
+}
+
 // The only sanitiser in the front end. Every value that comes from the server
 // and is written through innerHTML must pass through here — usernames,
 // referral codes, event names and admin-entered rejection reasons are all

@@ -90,7 +90,7 @@ module.exports = {
         success: true,
         orders: orders.map((order) => ({
           ...order,
-          purchaseUrl: order.delivery_method === 'group'
+          purchaseUrl: order.delivery_method === 'group' || order.delivery_method === 'manual'
             ? null
             : purchaseUrlFor(rootPlaceIds.get(String(order.universe_id)), order.roblox_gamepass_id)
         }))
@@ -226,6 +226,9 @@ module.exports = {
 
       if (order.delivery_method === 'group') {
         return this.checkGroupDelivery(req, res);
+      }
+      if (order.delivery_method === 'manual') {
+        return this.completeManualOrder(req, res, order);
       }
 
       // Same lock the group route uses: claim the order before the
@@ -429,6 +432,13 @@ module.exports = {
             message: 'Төлбөрийг баталгаажууллаа. Групп автоматжуулалт тохируулагдмагц ажиллана.'
           });
         }
+      }
+
+      if (order?.delivery_method === 'manual') {
+        return res.json({
+          success: true,
+          message: 'Төлбөрийг баталгаажууллаа. Robux-ыг гараар хүргээд "Хүргэсэн" дарна уу.'
+        });
       }
 
       res.json({ success: true, message: 'Төлбөрийг баталгаажууллаа. Game Pass авахад бэлэн.' });
@@ -662,6 +672,35 @@ module.exports = {
       console.error('Resolve stalled order error:', error);
       res.status(500).json({ success: false, error: 'Захиалгыг шийдвэрлэж чадсангүй.' });
     }
+  },
+
+  // A manual order has nothing to verify on Roblox: the admin delivered it
+  // by hand from the Messenger chat and is saying so. Pressing the button is
+  // the confirmation, so it goes through the same claim-then-complete pair
+  // as the other routes — two admins pressing at once still complete it once.
+  async completeManualOrder(req, res, order) {
+    const claimed = await orders.claimForFulfillment(this.dbHelpers, order.id);
+    if (!claimed) {
+      return res.status(409).json({
+        success: false,
+        error: 'Энэ захиалгыг өөр админ боловсруулж байна.'
+      });
+    }
+
+    await orders.markCompleted(this.dbHelpers, order.id);
+
+    await recordAdminAction(this.dbHelpers, req, ACTIONS.ORDER_FULFILLED, {
+      entityType: 'order',
+      entityId: order.id,
+      details: {
+        route: 'manual',
+        deliveredRobux: order.delivered_robux || order.price,
+        paymentReference: order.payment_reference,
+        verifiedVia: 'admin_confirmation'
+      }
+    });
+
+    res.json({ success: true, message: 'Гараар хүргэсэн гэж бүртгэлээ. Захиалга дууссан.' });
   },
 
   async checkGroupDelivery(req, res) {

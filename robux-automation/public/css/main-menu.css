@@ -1,0 +1,936 @@
+/* main-menu.css — the storefront's front door, drawn from the design comp.
+
+   Self-contained on purpose. It declares its own reset, its own palette and
+   every component on the page, so none of it depends on the older stylesheet
+   stack the workspace still loads. That stack stays exactly as it is: this is
+   a second front door, not a re-skin of the first, and either can be swapped
+   for the other without one having to know about the other.
+
+   The comp is one screen — a claim, a figure, a price panel — so the page is
+   laid out as three overlapping layers rather than as two columns. The figure
+   stands between the claim and the panel and is overlapped by both, which is
+   what makes it read as a shop window instead of as copy beside a card. */
+
+/* ---------- reset ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body, h1, h2, h3, p, ul, figure { margin: 0; }
+
+ul { padding: 0; list-style: none; }
+
+button, input { font: inherit; color: inherit; }
+
+button { border: 0; background: none; cursor: pointer; }
+
+img, svg { display: block; max-width: 100%; }
+
+/* The `hidden` attribute has to beat the display: values set below it, or
+   every panel this page folds away — the manual entry row, the promo card,
+   the sign-in methods — is drawn open on first paint. */
+[hidden] { display: none !important; }
+
+/* ---------- palette ----------
+
+   Everything on this page is one charcoal with white laid over it at four
+   opacities. Naming the opacities rather than the resulting greys is what
+   lets the panel sit over the figure and over the ground and read the same on
+   both — a flat grey would only match one of them. */
+:root {
+  --ground: #202120;
+
+  --text: #f5f5f4;
+  --muted: #9c9c9a;
+  /* The claim is deliberately not white: the two ringed lines are the only
+     thing on the left half meant to be read first. */
+  --claim: #9a9a98;
+
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.22);
+  --skin: rgba(255, 255, 255, 0.045);
+  --skin-lift: rgba(255, 255, 255, 0.075);
+
+  --green: #3faa4d;
+  --green-soft: #55c268;
+  --gold: #d7a53f;
+  --gold-deep: #8a6420;
+
+  --r-card: 26px;
+  --r-panel: 34px;
+  --shell: 1440px;
+  --gutter: clamp(1.25rem, 4vw, 4rem);
+
+  color-scheme: dark;
+}
+
+/* ---------- ground ---------- */
+
+body {
+  min-height: 100vh;
+  background: var(--ground);
+  color: var(--text);
+  font-family: Rubik, "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Two soft lifts — one under the figure, one behind the panel — and a vignette
+   over both. They do the job the comp's gradient does, keeping the middle of
+   the screen from being a flat field, without putting an image behind text. */
+.mm-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 55% at 50% 100%, rgba(255, 255, 255, 0.05), transparent 70%),
+    radial-gradient(45% 45% at 82% 22%, rgba(255, 255, 255, 0.045), transparent 70%),
+    radial-gradient(80% 80% at 50% 45%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.mm-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 20;
+  padding: 0.7rem 1.1rem;
+  border-radius: 0 0 12px 0;
+  background: #fff;
+  color: #16171a;
+  font-weight: 600;
+}
+
+.mm-skip:focus { left: 0; }
+
+:focus-visible {
+  outline: 2px solid var(--green-soft);
+  outline-offset: 3px;
+}
+
+/* ---------- top bar ----------
+
+   A mark, a bell and one way in. Everything else that would live up here is
+   the rail down the left edge of the stage instead. */
+.mm-top {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: clamp(1rem, 2.2vw, 1.75rem) var(--gutter);
+}
+
+.mm-brand { display: inline-flex; }
+
+.mm-brand img {
+  width: clamp(40px, 3.4vw, 52px);
+  height: auto;
+}
+
+.mm-top-actions {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1vw, 0.85rem);
+}
+
+.mm-bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #fff;
+  color: #16171a;
+  transition: transform 0.18s ease;
+}
+
+.mm-bell:hover { transform: translateY(-1px); }
+
+.mm-bell svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Raised only while a bonus event is actually running, from the same response
+   that fills the promo card — so the dot and the card can never disagree
+   about whether there is something on. */
+.mm-pip {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid #fff;
+}
+
+.mm-login {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 5px 5px 5px 1.35rem;
+  border-radius: 999px;
+  background: #fff;
+  color: #16171a;
+  font-weight: 500;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: transform 0.18s ease;
+}
+
+.mm-login:hover { transform: translateY(-1px); }
+
+.mm-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 25%, #fdfdff 0%, #cfd6ff 35%, #9aa6f2 60%, #6f78d8 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- the stage ----------
+
+   Grid for the two text columns, absolute for the three layers that overlap
+   them: the figure, the rail and the promo card. min-height keeps the claim
+   at the top and the rail at the foot of the same screen, which is the shape
+   of the comp — without it the rail rides up under the last line of the claim
+   on a short viewport. */
+.mm-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  gap: clamp(1rem, 3vw, 3rem);
+  align-items: start;
+  max-width: var(--shell);
+  min-height: min(880px, 84vh);
+  margin: 0 auto;
+  padding: 0 var(--gutter) clamp(3rem, 7vw, 6rem);
+}
+
+/* ---------- the figure ----------
+
+   Its own layer between the claim and the panel, so both overlap it.
+   Decoration, and it says so: no alt text, hidden from assistive tech, no
+   pointer events. If the file is missing, main-menu.js takes the whole layer
+   out of the document rather than leaving a broken-image glyph mid-screen. */
+.mm-character {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  z-index: 2;
+  width: clamp(340px, 38vw, 600px);
+  transform: translateX(-52%);
+  pointer-events: none;
+  user-select: none;
+}
+
+.mm-character img {
+  width: 100%;
+  height: auto;
+  /* Two things at once. The shadow darkens the room behind the figure, or it
+     reads as a sticker laid on the page; the brightness step takes the render
+     down to the ground's own light level, which is what stops the pale hands
+     and face from out-shouting the claim beside them. */
+  filter:
+    brightness(0.88) contrast(1.04)
+    drop-shadow(0 40px 70px rgba(0, 0, 0, 0.6));
+}
+
+/* ---------- the claim ----------
+
+   Four lines, grey, with the two promises ringed in green. The ring is an
+   outline rather than a fill so the ground runs through the words: it reads
+   as someone circling the important part, which is an argument, where a solid
+   green bar would just be a label. */
+.mm-claim {
+  position: relative;
+  z-index: 3;
+  grid-column: 1;
+  grid-row: 1;
+  padding-top: clamp(1rem, 5vh, 3.5rem);
+}
+
+.mm-claim h1 {
+  display: grid;
+  justify-items: start;
+  gap: 0.16em;
+  color: var(--claim);
+  font-size: clamp(1.9rem, 4vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+}
+
+/* Each line is one line. A ring broken across a wrap stops reading as
+   something circled and starts reading as two stray green boxes, so the type
+   scales with the column (above) rather than the words reflowing inside it. */
+.mm-claim h1 span { white-space: nowrap; }
+
+/* The comp does not stack these flush left — the four lines step in and out,
+   with the second ring hanging furthest left. Reproduced as indents on the
+   lines rather than as centring, because centring four lines of very
+   different length leaves ragged edges on both sides instead of one. */
+.mm-claim h1 span:nth-child(1) { padding-left: 0.3em; }
+
+.mm-claim .is-indented { padding-left: 1.05em; }
+
+.mm-claim h1 span:nth-child(4) { padding-left: 0.7em; }
+
+.mm-mark {
+  display: inline-block;
+  padding: 0.06em 0.5em 0.1em;
+  border: 2px solid var(--green);
+  border-radius: 999px;
+  color: var(--green);
+  font-style: normal;
+}
+
+/* ---------- the rail ----------
+
+   The page's whole navigation, out of the header and down the left edge.
+   Icon-only, so each link carries its label in aria-label for assistive tech
+   and in data-label for the tooltip everyone else gets on hover. */
+.mm-rail {
+  position: absolute;
+  left: var(--gutter);
+  bottom: clamp(2rem, 8vh, 5.5rem);
+  z-index: 4;
+  display: grid;
+  gap: clamp(0.6rem, 1.2vw, 1rem);
+}
+
+.mm-rail-link {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(44px, 3.4vw, 52px);
+  height: clamp(44px, 3.4vw, 52px);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--skin);
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.mm-rail-link:hover { background: var(--skin-lift); transform: translateY(-1px); }
+
+.mm-rail-link svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mm-rail-link.is-current {
+  background: #fff;
+  border-color: #fff;
+  color: #16171a;
+}
+
+/* The label everyone with a pointer gets. Built from data-label rather than
+   title= so it can be styled, and so it is not also read out by a screen
+   reader that already has the aria-label. */
+.mm-rail-link::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 0.6rem);
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  background: #f5f5f4;
+  color: #16171a;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+
+.mm-rail-link:hover::after,
+.mm-rail-link:focus-visible::after {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- the panel ----------
+
+   The catalogue, in the open, to a stranger. The list is the public one: a
+   signed-in buyer pays this less whatever their level discounts, so it can
+   only ever over-state a bill, never under-state one. The footnote says so. */
+.mm-panel {
+  position: relative;
+  z-index: 5;
+  grid-column: 2;
+  grid-row: 1;
+  padding: clamp(1.5rem, 2.4vw, 2.25rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  /* Opaque enough to stand *in front of* the figure rather than reveal it.
+     At the 0.55 this carried before, the character's head read straight
+     through the glass and the prices sat on a face. The blur is still here for
+     the edges, but the panel is now a card the figure goes behind. */
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025) 45%),
+    rgba(26, 27, 26, 0.9);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.45);
+}
+
+.mm-panel-title {
+  margin-bottom: clamp(1rem, 2vw, 1.5rem);
+  font-size: clamp(1.5rem, 2.3vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.mm-ladder {
+  padding: 0.4rem clamp(0.9rem, 1.6vw, 1.4rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* Above the stacking breakpoint — and only there — the ladder scrolls inside
+ * the panel rather than growing the page.
+ *
+ * The comp was drawn against six packages. The catalogue is ten, and a panel
+ * that simply grows with it stands a foot taller than the screen: the hero
+ * stops being one screen, the figure ends up beside the middle of a price list
+ * instead of beside the claim, and the composition unravels. Capping it keeps
+ * the shop window's shape however many packages are for sale, and the cap
+ * always cuts a row in half, which is what tells a buyer there are more below.
+ *
+ * None of that reasoning survives the breakpoint. Below it the three layers
+ * are already unstacked into an ordinary scrolling column, so the panel is
+ * free to be as tall as its contents — and a scroll box inside a page that
+ * scrolls is a trap on a touch screen: the flick that should move the page
+ * moves the list instead, and the list swallows it. */
+@media (min-width: 1081px) {
+  .mm-ladder {
+    max-height: min(52vh, 420px);
+    overflow-y: auto;
+    /* A ladder that has hit its end should not then scroll the page behind it. */
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  }
+
+  .mm-ladder::-webkit-scrollbar { width: 6px; }
+
+  .mm-ladder::-webkit-scrollbar-track { background: transparent; }
+
+  .mm-ladder::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* One row of the ladder. A button rather than a link: it does not navigate on
+   its own — it parks what was asked for and opens the sign-in sheet. */
+.mm-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: clamp(0.7rem, 1.3vw, 1rem) 0.15rem;
+  border-radius: 14px;
+  text-align: left;
+  transition: background 0.16s ease;
+}
+
+.mm-row + .mm-row { box-shadow: 0 -1px 0 var(--line); }
+
+.mm-row:hover { background: rgba(255, 255, 255, 0.045); }
+
+.mm-price {
+  font-size: clamp(1.05rem, 1.5vw, 1.45rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.mm-robux {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  min-width: clamp(120px, 12vw, 170px);
+  padding: 0.5rem 1.3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: clamp(0.95rem, 1.35vw, 1.3rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mm-coin { width: 1.15em; height: 1.15em; flex: none; }
+
+.mm-coin .coin-body { fill: var(--gold); }
+
+.mm-coin .coin-stud { fill: var(--gold-deep); }
+
+/* Hangs off the bottom-right of the row rather than taking a column, because
+   a column renders an empty cell on every package that has no discount — a
+   gap where a promise used to be. */
+.mm-off {
+  position: absolute;
+  right: 0.1rem;
+  bottom: -0.25rem;
+  color: var(--green-soft);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.mm-ladder-state {
+  padding: 2rem 0.5rem;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.mm-ladder-state button {
+  margin-top: 0.6rem;
+  color: var(--green-soft);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* The placeholder the ladder shows while /packages is in flight. Six rows,
+   because six is what usually lands — a shorter placeholder makes the whole
+   panel jump when the real list arrives. */
+.mm-skeleton {
+  height: clamp(2.6rem, 4vw, 3.4rem);
+  margin: 0.55rem 0.15rem;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  background-size: 200% 100%;
+  animation: mm-shimmer 1.4s linear infinite;
+}
+
+@keyframes mm-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* ---------- manual amount ----------
+
+   The two things a ladder cannot answer. Someone who wants exactly 640 Robux
+   and someone with exactly 20,000₮ to spend are asking the same question from
+   opposite ends, so there are two buttons rather than one field with a unit
+   dropdown. */
+.mm-manual {
+  margin-top: clamp(1.1rem, 2vw, 1.75rem);
+  text-align: center;
+}
+
+.mm-manual-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.mm-manual-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.mm-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.62rem 1.35rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.mm-unit:hover { background: rgba(255, 255, 255, 0.06); }
+
+.mm-unit[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.mm-unit-sign { color: var(--gold); font-size: 1.05em; }
+
+.mm-entry {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.mm-entry input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+
+.mm-go {
+  padding: 0.7rem 1.4rem;
+  border-radius: 999px;
+  background: var(--green);
+  color: #06210b;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mm-go:hover { background: var(--green-soft); }
+
+.mm-convert {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.mm-convert.is-error { color: #e08b7a; }
+
+/* ---------- promo card ----------
+
+   Leans on the panel's bottom-left corner, half over the figure — so it is a
+   child of the stage, not of the panel, whose own radius would have sliced it
+   down the middle.
+
+   Revealed only while something is actually running: an empty promo card
+   reads as something that failed to load. */
+.mm-promo {
+  position: absolute;
+  right: 33%;
+  bottom: clamp(2rem, 7vh, 5rem);
+  z-index: 6;
+  display: grid;
+  gap: 0.55rem;
+  width: clamp(150px, 15vw, 200px);
+  padding: 0.85rem;
+  border-radius: 22px;
+  background: #fbfbfa;
+  color: #16171a;
+  text-decoration: none;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5);
+  transition: transform 0.18s ease;
+}
+
+.mm-promo:hover { transform: translateY(-3px); }
+
+.mm-promo-title { font-size: 0.9rem; font-weight: 600; }
+
+/* Drawn rather than photographed, so the card is complete on a fresh install.
+   To use real art instead, drop the file in and point this at it:
+   background: url("/img/promo.png") center / cover; — the aspect ratio and
+   the radius already hold the space, so nothing else has to move. */
+.mm-promo-art {
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 22% 78%, rgba(255, 255, 255, 0.55) 0 8%, transparent 9%),
+    linear-gradient(#7fc7f5 0 58%, #6cb04a 58% 100%);
+}
+
+.mm-promo-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #55565a;
+  font-size: 0.7rem;
+}
+
+.mm-promo-go {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: #16171a;
+  color: #fff;
+}
+
+.mm-promo-go svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- sign-in sheet ----------
+
+   The comp has no sign-in card on it, and it is right not to: signing in is
+   what a buyer does after choosing, not before. So it is a dialog, opened by
+   the Login pill and by any row of the ladder, with what was asked for parked
+   in sessionStorage until there is an account to attach it to. */
+.mm-auth {
+  width: min(420px, calc(100vw - 2rem));
+  padding: clamp(1.5rem, 3vw, 2rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: #232423;
+  color: var(--text);
+}
+
+.mm-auth::backdrop {
+  background: rgba(10, 11, 10, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.mm-auth-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mm-auth h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.mm-auth-close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--skin);
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.mm-auth-close:hover { background: var(--skin-lift); color: var(--text); }
+
+.mm-auth-lede {
+  margin: 0.5rem 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.87rem;
+}
+
+.mm-auth-intent {
+  display: block;
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(63, 170, 77, 0.08);
+  color: var(--green-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.mm-auth-btn {
+  display: block;
+  width: 100%;
+  padding: 0.85rem 1.2rem;
+  border-radius: 999px;
+  background: var(--green);
+  color: #06210b;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.mm-auth-btn:hover { background: var(--green-soft); }
+
+.mm-auth-btn.is-secondary {
+  margin-top: 0.6rem;
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--text);
+}
+
+.mm-auth-btn.is-secondary:hover { background: var(--skin-lift); }
+
+.mm-auth-methods { display: grid; gap: 0.6rem; }
+
+/* A QR is only legible to a camera that is not the screen showing it, so on a
+   phone — where most buyers arrive — it stays folded behind the link. */
+.mm-qr {
+  margin-top: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.82rem;
+}
+
+.mm-qr summary {
+  padding: 0.7rem 0.9rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.mm-qr-frame {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: center;
+  padding: 0 0.9rem 0.9rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.mm-qr-frame img {
+  width: 180px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.mm-note {
+  margin-top: 0.9rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 14px;
+  background: var(--skin);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.mm-note.is-error { color: #e08b7a; }
+
+/* ---------- narrower than the comp ----------
+
+   The comp is a wide screen. Below it the three layers cannot overlap without
+   the figure landing on the words, so they unstack in order: the panel drops
+   under the claim, the rail turns into a row, and the figure — which is
+   decoration — goes last. */
+@media (max-width: 1080px) {
+  .mm-stage {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding-bottom: clamp(2rem, 6vw, 4rem);
+  }
+
+  .mm-claim { grid-column: 1; grid-row: 1; max-width: 12em; }
+
+  .mm-panel {
+    grid-column: 1;
+    grid-row: 3;
+    margin-top: clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  /* Behind the claim, cropped by the viewport edge rather than shrunk to a
+     thumbnail: half a figure at full size still reads as a figure. */
+  /* Flush with the gutter rather than bleeding past it: a decorative layer
+     hanging off the right edge widens the document, and a page that scrolls
+     sideways by 26px is a page that feels broken on a touch device. */
+  .mm-character {
+    left: auto;
+    right: 0;
+    bottom: auto;
+    top: 0;
+    width: min(44vw, 360px);
+    transform: none;
+    opacity: 0.45;
+  }
+
+  .mm-rail {
+    position: static;
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .mm-rail-link::after { display: none; }
+
+  /* Back under the panel it used to lean on, where there is room for it. */
+  .mm-promo {
+    position: static;
+    grid-column: 1;
+    grid-row: 4;
+    width: 100%;
+    max-width: 260px;
+    margin-top: 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  /* On a phone the figure stops being a third column and becomes the ground
+     the claim is set on. It was hidden outright here, which is why the page
+     arrived on a phone with no character on it at all.
+
+     Three things keep it readable rather than busy: it sits behind everything
+     (z-index 0, under the claim's 3 and the panel's 5), it is dimmed to a
+     texture, and it is masked so it dissolves before the price panel starts —
+     a figure showing through the panel's blur is noise, not decoration. */
+  .mm-character {
+    display: block;
+    top: 0;
+    bottom: auto;
+    /* Anchored to the right edge rather than centred on a percentage. The
+       claim is set flush left, so the figure belongs to its right — and an
+       edge it is pinned to is an edge it cannot cross. Centring it with
+       translateX(-50%) put a third of it past the viewport, which widened the
+       layout by 36px and zoomed the whole page out on a phone. */
+    left: auto;
+    right: 0;
+    z-index: 0;
+    width: min(78%, 320px);
+    transform: none;
+    opacity: 0.3;
+    -webkit-mask-image: linear-gradient(#000 55%, transparent 92%);
+    mask-image: linear-gradient(#000 55%, transparent 92%);
+  }
+
+  .mm-character img {
+    /* The drop shadow did the work of separating the figure from the ground;
+       as the ground itself it wants none, and a touch less contrast keeps the
+       pale hands from reading as smudges behind the type. */
+    filter: brightness(0.8) contrast(0.95);
+  }
+
+  .mm-claim { max-width: none; }
+
+  .mm-panel { padding: 1.15rem; }
+
+  .mm-ladder { padding: 0.2rem 0.8rem; }
+
+  .mm-row { gap: 0.6rem; }
+
+  .mm-robux { min-width: 104px; padding: 0.45rem 0.9rem; }
+
+  .mm-manual-row { flex-wrap: wrap; }
+
+  .mm-entry { flex-wrap: wrap; }
+
+  .mm-entry input { flex-basis: 100%; }
+
+  .mm-go { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

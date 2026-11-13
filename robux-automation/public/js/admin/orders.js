@@ -7,7 +7,8 @@
 import { $, escapeHtml, showResult } from '../common/dom.js';
 import { request, jsonBody } from '../common/api.js';
 import { formatMnt, formatNumber } from '../common/format.js';
-import { askRejectionReason } from './dialog.js';
+import { askRejectionReason, confirmDialog } from './dialog.js';
+import { setNavCount } from './nav.js';
 
 // Mirrors src/services/order-status.js.
 const STATUS_VIEW = {
@@ -97,8 +98,12 @@ function actionCell(order, view) {
             <button class="btn btn-sm btn-danger" type="button" data-reject="${Number(order.id)}">Татгалзах</button>`;
   }
   if (order.status === READY_TO_DELIVER) {
-    const label = order.delivery_method === 'group' ? 'Одоо шалгах' : 'Roblox-оос шалгах';
-    return `<button class="btn btn-sm" type="button" data-purchased="${Number(order.id)}">${label}</button>`;
+    const label = {
+      group: 'Одоо шалгах',
+      manual: 'Хүргэсэн'
+    }[order.delivery_method] || 'Roblox-оос шалгах';
+    const manual = order.delivery_method === 'manual' ? ' data-manual="1"' : '';
+    return `<button class="btn btn-sm" type="button" data-purchased="${Number(order.id)}"${manual}>${label}</button>`;
   }
   return `<span class="badge ${view.badge}">${escapeHtml(view.label)}</span>`;
 }
@@ -111,6 +116,9 @@ function renderStrip() {
   $('payment-orders').textContent = countOf(PENDING_REVIEW);
   $('ready-orders').textContent = countOf(IN_DELIVERY);
   $('purchased-orders').textContent = countOf(['completed']);
+  // The menu badge counts only what is waiting on an admin. An unpaid order
+  // is waiting on the buyer, so it is not on it.
+  setNavCount('orders', countOf(['payment_submitted', 'under_review', 'payment_approved', 'fulfillment_pending']));
 }
 
 // Counts are taken within the current search, so a chip reading 0 is telling
@@ -161,6 +169,7 @@ function renderOrders(orders) {
 
   $('orders-list').innerHTML = orders.map((order) => {
     const isGroup = order.delivery_method === 'group';
+    const isManual = order.delivery_method === 'manual';
     const view = statusView(order.status);
     return `
       <tr>
@@ -170,7 +179,7 @@ function renderOrders(orders) {
         </td>
         <td data-label="Захиалга">
           <strong>${formatNumber(order.price)} Robux</strong>
-          <small>${isGroup ? 'Группээр' : `Pass: ${formatNumber(order.listed_price)} Robux`}</small>
+          <small>${isGroup ? 'Группээр' : isManual ? 'Гараар (Messenger)' : `Pass: ${formatNumber(order.listed_price)} Robux`}</small>
         </td>
         <td data-label="Төлбөр">
           <strong>${order.amount_mnt ? formatMnt(order.amount_mnt) : '—'}</strong>
@@ -179,8 +188,8 @@ function renderOrders(orders) {
           ${order.rejection_reason ? `<small class="reject-reason">${escapeHtml(order.rejection_reason)}</small>` : ''}
         </td>
         <td data-label="Баримт">${receiptCell(order)}</td>
-        <td data-label="Хүргэлт">${isGroup
-          ? 'Групп'
+        <td data-label="Хүргэлт">${isGroup || isManual
+          ? (isGroup ? 'Групп' : 'Messenger')
           : `<a href="${escapeHtml(order.purchaseUrl)}" target="_blank" rel="noopener noreferrer">#${Number(order.roblox_gamepass_id)} ↗</a>`}</td>
         <td data-label="Үйлдэл" class="action-buttons">${actionCell(order, view)}</td>
       </tr>`;
@@ -228,6 +237,17 @@ export function initOrders() {
   $('orders-list').addEventListener('click', async (event) => {
     const button = event.target.closest('[data-payment], [data-purchased], [data-reject]');
     if (!button) return;
+
+    // A manual order has no Roblox check behind the button — pressing it is
+    // the admin's word that the Robux arrived, and it cannot be undone.
+    if (button.dataset.manual) {
+      const sure = await confirmDialog(
+        'Хүргэсэн гэж бүртгэх үү?',
+        'Robux-ыг хэрэглэгчид гараар хүргэсэн эсэхээ шалгана уу. Энэ үйлдлийг буцаах боломжгүй.',
+        { confirmLabel: 'Хүргэсэн' }
+      );
+      if (!sure) return;
+    }
 
     const rejectId = button.dataset.reject;
     // The reason is mandatory server-side too — this prompt just saves a

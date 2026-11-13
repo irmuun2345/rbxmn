@@ -408,3 +408,158 @@
   max-width: 660px;
   margin-bottom: 1.8rem;
 }
+
+/* ============================================================
+   The glass workspace
+
+   Signed in, the page keeps the shape it already had — a rail of
+   destinations down the left, one panel to the right of it — and changes
+   only its material. That restraint is deliberate: the rail *is* the landing
+   page's icon rail grown labels, and a customer who signed in should find
+   the same navigation in the same place rather than a second application.
+
+   Scoped to the storefront theme so admin.html, which shares this file,
+   keeps the moulded shelf it was built for.
+   ============================================================ */
+
+body.theme-glass .workspace {
+  padding-top: 1rem;
+}
+
+body.theme-glass .workspace-head .h2 {
+  color: var(--text);
+}
+
+/* The strip becomes a pane, and the keys inside it lose their moulding. */
+body.theme-glass .tabs {
+  border: var(--stroke) solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+body.theme-glass .tab {
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+}
+
+body.theme-glass .tab:hover {
+  background: var(--glass-lit);
+}
+
+/* White, not green. The selected tab and the Login pill and the current rail
+   circle are all the same statement — "this one" — and on this ground that
+   statement is white. Green is kept for things that are *live*: an event
+   running, an order delivered, a package in stock. */
+body.theme-glass .tab[aria-selected="true"] {
+  color: #171717;
+  background: #ffffff;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+body.theme-glass .tab[aria-selected="true"] .tab-count {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+body.theme-glass .tab[aria-selected="true"] .tab-pip {
+  background: var(--accent-lit);
+}
+
+/* ---------- panels inside the workspace ----------
+
+   theme.css already turns every .panel to glass. What is left here is the
+   furniture inside one: the rows, the totals and the head. */
+body.theme-glass .panel {
+  padding: clamp(1.25rem, 2.4vw, 1.9rem);
+}
+
+body.theme-glass .panel-head {
+  margin-bottom: 1.1rem;
+}
+
+/* A total is the answer to everything above it, so it gets the well and the
+   weight. It used to be a bordered strip like every other line item, which
+   made the number you actually pay the same size as the label beside it. */
+body.theme-glass .line-item {
+  border-color: var(--glass-edge);
+}
+
+body.theme-glass .line-item-total {
+  margin-top: 0.5rem;
+  padding: 0.9rem 1.1rem;
+  border: var(--stroke) solid var(--glass-edge);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+body.theme-glass .line-item-total strong {
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- the event banner ----------
+
+   A capsule rather than a full-width bar. The bar spanned the page and
+   pushed the hero down by its own height on every load; a capsule announces
+   the same thing without moving the thing it is announcing. */
+body.theme-glass .event-banner {
+  margin: 0 auto 1.5rem;
+  border: var(--stroke) solid var(--venom-line);
+  border-radius: var(--radius-pill);
+  background: var(--venom-soft);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  padding: 0.6rem 1.35rem;
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* ---------- rows, chips and badges ---------- */
+
+body.theme-glass .data-row,
+body.theme-glass .event-row,
+body.theme-glass .bank-option {
+  border: var(--stroke) solid var(--glass-edge);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+body.theme-glass .chip {
+  border-radius: var(--radius-pill);
+  border-color: var(--glass-edge);
+}
+
+body.theme-glass .chip[aria-checked="true"] {
+  color: #171717;
+  background: #ffffff;
+  border-color: transparent;
+}
+
+body.theme-glass .badge {
+  border-radius: var(--radius-pill);
+}
+
+body.theme-glass .stepper-item .stepper-dot {
+  border-radius: 50%;
+}
+
+/* ---------- the desktop rail ----------
+
+   Sticky, and left-aligned, exactly as it already was. Only the material
+   changes — and the width comes in slightly, because capsule keys need less
+   horizontal padding than moulded ones to read as pressable. */
+@media (min-width: 900px) {
+  body.theme-glass .workspace {
+    grid-template-columns: 224px minmax(0, 1fr);
+  }
+
+  body.theme-glass .tabs {
+    padding: 0.6rem;
+  }
+}

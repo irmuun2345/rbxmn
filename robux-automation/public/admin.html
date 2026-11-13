@@ -38,44 +38,154 @@
     </div>
   </header>
 
-  <main class="page admin-shell" id="dashboard">
-    <header class="admin-heading">
-      <div>
-        <h1 class="h2">Захиалгын самбар</h1>
+  <div class="page admin-layout">
+    <!-- One view at a time, picked from here. The page used to be a single
+         column of every panel, with the settings folded away at the bottom;
+         now each job has its own screen and the address bar remembers which
+         one is open (#orders, #sales, …), so a refresh stays put. -->
+    <nav class="admin-nav" aria-label="Админ цэс">
+      <div class="admin-nav-group">
+        <p class="admin-nav-label">Өдөр тутам</p>
+        <a class="admin-nav-link" href="#orders" data-view-link="orders">
+          <span>Захиалга</span>
+          <span class="admin-nav-count" id="nav-count-orders" hidden></span>
+        </a>
+        <a class="admin-nav-link" href="#sales" data-view-link="sales">
+          <span>Борлуулалт</span>
+        </a>
+        <a class="admin-nav-link" href="#gift-cards" data-view-link="gift-cards">
+          <span>Бэлгийн карт</span>
+        </a>
       </div>
-      <a class="btn btn-ghost" href="/" target="_blank" rel="noopener">Дэлгүүр харах ↗</a>
-    </header>
+      <div class="admin-nav-group">
+        <p class="admin-nav-label">Дэлгүүр</p>
+        <a class="admin-nav-link" href="#catalog" data-view-link="catalog">
+          <span>Багц ба эвент</span>
+        </a>
+        <a class="admin-nav-link" href="#banking" data-view-link="banking">
+          <span>Данс</span>
+        </a>
+        <a class="admin-nav-link" href="#referrals" data-view-link="referrals">
+          <span>Урилга</span>
+        </a>
+      </div>
+      <div class="admin-nav-group">
+        <p class="admin-nav-label">Систем</p>
+        <a class="admin-nav-link" href="#group" data-view-link="group">
+          <span>Групп ба bot</span>
+        </a>
+        <a class="admin-nav-link" href="#users" data-view-link="users">
+          <span>Хэрэглэгчид</span>
+        </a>
+        <a class="admin-nav-link" href="#audit" data-view-link="audit">
+          <span>Аудит бүртгэл</span>
+        </a>
+        <a class="admin-nav-link" href="#account" data-view-link="account">
+          <span>Аккаунт</span>
+        </a>
+      </div>
+      <a class="btn btn-ghost btn-sm admin-nav-store" href="/" target="_blank" rel="noopener">Дэлгүүр харах ↗</a>
+    </nav>
 
-    <section class="stat-strip" aria-label="Товч мэдээлэл">
-      <div class="stat">
-        <span>Шалгах хүлээгдэж буй</span>
-        <strong id="payment-orders">—</strong>
+    <main class="admin-main" id="dashboard" tabindex="-1">
+
+    <section class="admin-view" data-view="orders" aria-labelledby="view-title-orders" hidden>
+      <header class="admin-heading">
+        <div>
+          <h1 class="h2" id="view-title-orders">Захиалга</h1>
+          <p class="admin-heading-sub">Баримт шалгах, төлбөр зөвшөөрөх, хүргэх.</p>
+        </div>
+      </header>
+      <section class="stat-strip" aria-label="Товч мэдээлэл">
+        <div class="stat">
+          <span>Шалгах хүлээгдэж буй</span>
+          <strong id="payment-orders">—</strong>
+        </div>
+        <div class="stat">
+          <span>Хүргэхэд бэлэн</span>
+          <strong id="ready-orders">—</strong>
+        </div>
+        <div class="stat">
+          <span>Дууссан</span>
+          <strong id="purchased-orders">—</strong>
+        </div>
+        <div class="stat">
+          <span>Өнөөдөр хүргэсэн</span>
+          <strong class="tabular" id="today-robux-stat">—</strong>
+        </div>
+      </section>
+
+      <!-- Only rendered when something is actually stuck. These orders had a
+           payout request issued whose result we never saw, so they sit here
+           until a human checks Roblox — the system will never retry them. -->
+      <section class="panel admin-card stalled-section" id="stalled-section" hidden>
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">⚠ Гацсан хүргэлт</h2>
+            <p>Шилжүүлэг илгээгдсэн ч хариу нь ирээгүй. <strong>Roblox дээрх группын түүхийг шалгаад</strong> юу болсныг сонгоно уу — систем өөрөө дахин оролдохгүй.</p>
+          </div>
+        </div>
+        <div class="editable-list" id="stalled-list"></div>
+        <p id="stalled-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
+
+      <section class="panel admin-card ledger-section">
+      <div class="panel-head">
+        <div>
+          <h2 class="h3">Захиалгын дараалал</h2>
+        </div>
       </div>
-      <div class="stat">
-        <span>Хүргэхэд бэлэн</span>
-        <strong id="ready-orders">—</strong>
+      <p id="automation-status" class="hint">Roblox automation тохиргоог шалгаж байна…</p>
+
+      <!-- The queue is worked from the top, but it also holds every order
+           that has already been dealt with — so it needs a way to ask about
+           one of them. Filtering happens in the browser over the rows that
+           are already here: the queue is one request, and a round trip per
+           keystroke would be slower than the list it is searching. -->
+      <div class="list-toolbar">
+        <div class="chip-row" id="order-filters" role="radiogroup" aria-label="Захиалгын шүүлтүүр"></div>
+        <div class="toolbar-search">
+          <label class="sr-only" for="order-search">Захиалга хайх</label>
+          <input id="order-search" type="search" autocomplete="off"
+                 placeholder="Хэрэглэгч, Roblox ID, лавлах код">
+        </div>
       </div>
-      <div class="stat">
-        <span>Дууссан</span>
-        <strong id="purchased-orders">—</strong>
+
+      <p class="list-summary" id="orders-summary"></p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Хэрэглэгч</th>
+              <th>Захиалга</th>
+              <th>Төлбөр / Утга</th>
+              <th>Баримт</th>
+              <th>Хүргэлт</th>
+              <th>Үйлдэл</th>
+            </tr>
+          </thead>
+          <tbody id="orders-list">
+            <tr><td class="empty-cell" colspan="6">Захиалгын дарааллыг ачаалж байна…</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="stat">
-        <span>Өнөөдөр хүргэсэн</span>
-        <strong class="tabular" id="today-robux-stat">—</strong>
-      </div>
+      <p id="orders-result" class="notice" role="status" aria-live="polite" hidden></p>
+    
+      </section>
     </section>
 
-    <!-- Sales, as opposed to the strip above: that counts what still needs
-         working, this counts what has already been delivered and paid for.
-         Only completed orders are in here, so the numbers never fall when a
-         payment is rejected.
-
-         One view, not two. This began as a fixed table of periods with a
-         search below it, which meant the same figures were on screen twice
-         and an admin had to know which of the two to believe. The periods
-         are presets now: they set the range, the summary line states the
-         totals for whatever is set, and there is one list under it. -->
-    <section class="panel sales-section">
+    <section class="admin-view" data-view="sales" aria-labelledby="view-title-sales" hidden>
+      <header class="admin-heading">
+        <div>
+          <h1 class="h2" id="view-title-sales">Борлуулалт</h1>
+          <p class="admin-heading-sub">Дууссан захиалгын тоо, Robux, орлого.</p>
+        </div>
+      </header>
+      <!-- Only completed orders are in here, so the numbers never fall when a
+           payment is rejected. The presets write into the date boxes, so a
+           range can be nudged after picking one. -->
+      <section class="panel admin-card sales-section">
       <div class="panel-head">
         <div>
           <h2 class="h3">Борлуулалт</h2>
@@ -135,190 +245,67 @@
       </div>
 
       <p id="sales-result" class="notice" role="status" aria-live="polite" hidden></p>
+    
+      </section>
     </section>
 
-    <!-- Only rendered when something is actually stuck. These orders had a
-         payout request issued whose result we never saw, so they sit here
-         until a human checks Roblox — the system will never retry them. -->
-    <section class="panel stalled-section" id="stalled-section" hidden>
-      <div class="panel-head">
+    <section class="admin-view" data-view="gift-cards" aria-labelledby="view-title-gift-cards" hidden>
+      <header class="admin-heading">
         <div>
-          <h2 class="h3">⚠ Гацсан хүргэлт</h2>
-          <p>Шилжүүлэг илгээгдсэн ч хариу нь ирээгүй. <strong>Roblox дээрх группын түүхийг шалгаад</strong> юу болсныг сонгоно уу — систем өөрөө дахин оролдохгүй.</p>
+          <h1 class="h2" id="view-title-gift-cards">Бэлгийн карт</h1>
         </div>
-      </div>
-      <div class="editable-list" id="stalled-list"></div>
-      <p id="stalled-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </header>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Төлбөр хүлээж буй картууд</h2>
+            <p>Төлбөрийг баталгаажуулсны дараа код идэвхжинэ.</p>
+          </div>
+        </div>
+        <div class="editable-list" id="gift-cards-list"></div>
+        <p id="gift-cards-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
     </section>
 
-    <section class="panel ledger-section">
-      <div class="panel-head">
+    <section class="admin-view" data-view="catalog" aria-labelledby="view-title-catalog" hidden>
+      <header class="admin-heading">
         <div>
-          <h2 class="h3">Захиалгын дараалал</h2>
+          <h1 class="h2" id="view-title-catalog">Багц ба эвент</h1>
+          <p class="admin-heading-sub">Хэрэглэгчид харагдах үнэ, бонус, хямдрал.</p>
         </div>
-      </div>
-      <p id="automation-status" class="hint">Roblox automation тохиргоог шалгаж байна…</p>
-
-      <!-- The queue is worked from the top, but it also holds every order
-           that has already been dealt with — so it needs a way to ask about
-           one of them. Filtering happens in the browser over the rows that
-           are already here: the queue is one request, and a round trip per
-           keystroke would be slower than the list it is searching. -->
-      <div class="list-toolbar">
-        <div class="chip-row" id="order-filters" role="radiogroup" aria-label="Захиалгын шүүлтүүр"></div>
-        <div class="toolbar-search">
-          <label class="sr-only" for="order-search">Захиалга хайх</label>
-          <input id="order-search" type="search" autocomplete="off"
-                 placeholder="Хэрэглэгч, Roblox ID, лавлах код">
+      </header>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Robux багц</h2>
+            <p>Хэрэглэгч зөвхөн эдгээр хэмжээнээс сонгоно.</p>
+          </div>
         </div>
-      </div>
-
-      <p class="list-summary" id="orders-summary"></p>
-
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Хэрэглэгч</th>
-              <th>Захиалга</th>
-              <th>Төлбөр / Утга</th>
-              <th>Баримт</th>
-              <th>Хүргэлт</th>
-              <th>Үйлдэл</th>
-            </tr>
-          </thead>
-          <tbody id="orders-list">
-            <tr><td class="empty-cell" colspan="6">Захиалгын дарааллыг ачаалж байна…</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p id="orders-result" class="notice" role="status" aria-live="polite" hidden></p>
-    </section>
-
-    <!-- Configuration sits below the queue on purpose. Approving payments is
-         the hourly job; prices, levels, events and bot credentials are
-         touched weeks apart, and having twelve collapsed panels above the
-         work meant scrolling past all of them every single time. -->
-    <header class="admin-heading admin-subheading">
-      <div>
-        <h2 class="h2">Тохиргоо</h2>
-      </div>
-    </header>
-
-    <details class="stub-toggle">
-      <summary>Админы нууц үг солих</summary>
-      <div class="details-body">
-        <form id="password-form">
-          <div class="field">
-            <label for="current-password">Одоогийн нууц үг</label>
-            <input id="current-password" type="password" autocomplete="current-password" required>
-          </div>
-          <div class="field">
-            <label for="new-password">Шинэ нууц үг</label>
-            <input id="new-password" type="password" autocomplete="new-password" minlength="12" required>
-            <p class="hint">Хамгийн багадаа 12 тэмдэгт.</p>
-          </div>
-          <button class="btn" type="submit">Нууц үг шинэчлэх</button>
-        </form>
-        <p id="password-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
-
-    <details class="stub-toggle" open>
-      <summary>Данс</summary>
-      <div class="details-body">
-        <p class="hint">Захиалагч эдгээрийн аль нэг рүү шилжүүлнэ. Хэд хэдэн банктай байвал өөрийн банк руугаа шилжүүлж чадна. Дээд талынх нь эхэлж харагдана.</p>
-        <div class="editable-list" id="bank-accounts-list"></div>
+        <div class="editable-list" id="packages-list"></div>
         <div class="inline-form">
           <div class="field">
-            <label for="bank-name-input">Банк</label>
-            <input id="bank-name-input" type="text" placeholder="Жишээ: Хаан банк">
+            <label for="new-package-amount">Robux хэмжээ</label>
+            <input id="new-package-amount" type="number" min="1" step="1" placeholder="Жишээ: 800">
           </div>
           <div class="field">
-            <label for="bank-account-input">Дансны дугаар</label>
-            <input id="bank-account-input" type="text" inputmode="numeric" placeholder="Жишээ: 5001234567">
+            <label for="new-package-price">Үнэ (₮)</label>
+            <input id="new-package-price" type="number" min="1" step="1" placeholder="Жишээ: 36000">
           </div>
           <div class="field">
-            <label for="bank-holder-input">Данс эзэмшигчийн нэр</label>
-            <input id="bank-holder-input" type="text" placeholder="Жишээ: Г. Бат-Эрдэнэ">
+            <label for="new-package-discount">Эвентийн хямдрал %</label>
+            <input id="new-package-discount" type="number" min="0" max="90" step="1" placeholder="0">
           </div>
-          <button class="btn" id="add-bank-btn" type="button">Данс нэмэх</button>
+          <button class="btn" id="add-package-btn" type="button">Багц нэмэх</button>
         </div>
-        <p id="bank-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
-
-    <details class="stub-toggle" open>
-      <summary>Групп ба bot</summary>
-      <div class="details-body">
-        <div class="field">
-          <label for="group-id-input">Группын ID</label>
-          <input id="group-id-input" type="text" inputmode="numeric" placeholder="Жишээ: 1234567">
-          <p class="hint" id="group-name-status">Тохируулагдаагүй байна.</p>
-        </div>
-        <button class="btn" id="save-group-btn" type="button">Групп хадгалах</button>
-        <p id="group-result" class="notice" role="status" aria-live="polite" hidden></p>
-
-        <div class="field field-spaced">
-          <label>Bot аккаунт</label>
-          <p class="hint" id="bot-status">Холбогдоогүй байна.</p>
-        </div>
-        <div class="field">
-          <label for="bot-cookie-input">Bot-ийн .ROBLOSECURITY cookie</label>
-          <input id="bot-cookie-input" type="password" autocomplete="off" placeholder="Шинэ bot холбоход л оруулна">
-          <p class="hint">Bot нь группын админ эрхтэй байх ёстой.</p>
-        </div>
-        <div class="action-buttons">
-          <button class="btn" id="connect-bot-btn" type="button">Bot холбох</button>
-          <button class="btn btn-danger" id="disconnect-bot-btn" type="button">Bot салгах</button>
-        </div>
-        <p id="bot-result" class="notice" role="status" aria-live="polite" hidden></p>
-
-        <div class="field field-spaced">
-          <label>Bot-ийн 2FA</label>
-          <p class="hint" id="bot-2fa-status">Тохируулаагүй байна.</p>
-        </div>
-        <div class="field">
-          <label for="bot-totp-input">Authenticator секрет (base32)</label>
-          <input id="bot-totp-input" type="password" autocomplete="off" placeholder="Жишээ: JBSWY3DPEHPK3PXP">
-          <p class="hint">
-            Roblox дээр 2FA тохируулахдаа QR-ийн доор гардаг түлхүүр. Payout автоматаар явдаг тул
-            кодыг сервер өөрөө үүсгэнэ. Энэ түлхүүр хадгалагдсанаар өгөгдлийн сан рүү нэвтэрсэн
-            хүн bot-ийн 2FA-г давж чадна гэдгийг анхаарна уу.
-          </p>
-        </div>
-        <div class="action-buttons">
-          <button class="btn" id="save-bot-2fa-btn" type="button">2FA секрет хадгалах</button>
-          <button class="btn btn-danger" id="clear-bot-2fa-btn" type="button">2FA секрет устгах</button>
-        </div>
-        <p id="bot-2fa-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
-
-    <details class="stub-toggle">
-      <summary>Хэрэглэгчийн түвшин</summary>
-      <div class="details-body">
-        <p class="hint">Хүргэгдсэн захиалгын нийт Robux-аар тооцно.</p>
-        <div class="editable-list" id="levels-list"></div>
-        <div class="inline-form">
-          <div class="field">
-            <label for="new-level-threshold">Босго (нийт Robux)</label>
-            <input id="new-level-threshold" type="number" min="1" step="1" placeholder="Жишээ: 12000">
+        <p id="packages-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Эвент</h2>
+            <p>Үргэлжлэх хугацаанд захиалга бүр илүү Robux авна. Төлөх дүн хэвээр.</p>
           </div>
-          <div class="field">
-            <label for="new-level-discount">Хямдрал %</label>
-            <input id="new-level-discount" type="number" min="0" max="90" step="1" placeholder="Жишээ: 5">
-          </div>
-          <button class="btn" id="add-level-btn" type="button">Түвшин нэмэх</button>
         </div>
-        <p id="levels-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
-
-    <details class="stub-toggle">
-      <summary>Эвент</summary>
-      <div class="details-body">
-        <p class="hint">Үргэлжлэх хугацаанд захиалга бүр илүү Robux авна. Төлөх дүн хэвээр.</p>
         <div class="editable-list" id="events-list"></div>
         <div class="inline-form">
           <div class="field">
@@ -340,64 +327,76 @@
         </div>
         <button class="btn" id="add-event-btn" type="button">Эвент үүсгэх</button>
         <p id="events-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
-
-    <details class="stub-toggle" open>
-      <summary>Robux багц</summary>
-      <div class="details-body">
-        <p class="hint">Хэрэглэгч зөвхөн эдгээр хэмжээнээс сонгоно.</p>
-        <div class="editable-list" id="packages-list"></div>
+      </section>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Хэрэглэгчийн түвшин</h2>
+            <p>Хүргэгдсэн захиалгын нийт Robux-аар тооцно.</p>
+          </div>
+        </div>
+        <div class="editable-list" id="levels-list"></div>
         <div class="inline-form">
           <div class="field">
-            <label for="new-package-amount">Robux хэмжээ</label>
-            <input id="new-package-amount" type="number" min="1" step="1" placeholder="Жишээ: 800">
+            <label for="new-level-threshold">Босго (нийт Robux)</label>
+            <input id="new-level-threshold" type="number" min="1" step="1" placeholder="Жишээ: 12000">
           </div>
           <div class="field">
-            <label for="new-package-price">Үнэ (₮)</label>
-            <input id="new-package-price" type="number" min="1" step="1" placeholder="Жишээ: 36000">
+            <label for="new-level-discount">Хямдрал %</label>
+            <input id="new-level-discount" type="number" min="0" max="90" step="1" placeholder="Жишээ: 5">
           </div>
-          <div class="field">
-            <label for="new-package-discount">Эвентийн хямдрал %</label>
-            <input id="new-package-discount" type="number" min="0" max="90" step="1" placeholder="0">
-          </div>
-          <button class="btn" id="add-package-btn" type="button">Багц нэмэх</button>
+          <button class="btn" id="add-level-btn" type="button">Түвшин нэмэх</button>
         </div>
-        <p id="packages-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
+        <p id="levels-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
+    </section>
 
-    <details class="stub-toggle">
-      <summary>Утасны холболт</summary>
-      <div class="details-body">
-        <p class="hint">Нэг аккаунт — нэг дугаар. Утсаа сольсон хэрэглэгчид л салгана.</p>
-        <div class="editable-list" id="phone-links-list"></div>
-        <p id="phone-links-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
+    <section class="admin-view" data-view="banking" aria-labelledby="view-title-banking" hidden>
+      <header class="admin-heading">
+        <div>
+          <h1 class="h2" id="view-title-banking">Данс</h1>
+        </div>
+      </header>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Шилжүүлэх данс</h2>
+            <p>Захиалагч эдгээрийн аль нэг рүү шилжүүлнэ. Хэд хэдэн банктай байвал өөрийн банк руугаа шилжүүлж чадна. Дээд талынх нь эхэлж харагдана.</p>
+          </div>
+        </div>
+        <div class="editable-list" id="bank-accounts-list"></div>
+        <div class="inline-form">
+          <div class="field">
+            <label for="bank-name-input">Банк</label>
+            <input id="bank-name-input" type="text" placeholder="Жишээ: Хаан банк">
+          </div>
+          <div class="field">
+            <label for="bank-account-input">Дансны дугаар</label>
+            <input id="bank-account-input" type="text" inputmode="numeric" placeholder="Жишээ: 5001234567">
+          </div>
+          <div class="field">
+            <label for="bank-holder-input">Данс эзэмшигчийн нэр</label>
+            <input id="bank-holder-input" type="text" placeholder="Жишээ: Г. Бат-Эрдэнэ">
+          </div>
+          <button class="btn" id="add-bank-btn" type="button">Данс нэмэх</button>
+        </div>
+        <p id="bank-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
+    </section>
 
-    <details class="stub-toggle">
-      <summary>Бэлгийн карт</summary>
-      <div class="details-body">
-        <p class="hint">Төлбөрийг баталгаажуулсны дараа код идэвхжинэ.</p>
-        <div class="editable-list" id="gift-cards-list"></div>
-        <p id="gift-cards-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
-
-    <details class="stub-toggle">
-      <summary>Группын гишүүнчлэл</summary>
-      <div class="details-body">
-        <p class="hint">"Тэмдэглэсэн" = анх шалгахад аль хэдийн гишүүн байсан, хугацаа тэр өдрөөс эхэлсэн.</p>
-        <div class="editable-list" id="memberships-list"></div>
-        <p id="memberships-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
-
-    <details class="stub-toggle">
-      <summary>Урилгын хөтөлбөр</summary>
-      <div class="details-body">
-        <p class="hint"><strong>Зөвхөн хүргэгдсэн захиалга шимтгэл төрүүлнэ.</strong> Төлбөр нь зөвшөөрөгдсөн ч хүргэгдээгүй бол тооцохгүй.</p>
+    <section class="admin-view" data-view="referrals" aria-labelledby="view-title-referrals" hidden>
+      <header class="admin-heading">
+        <div>
+          <h1 class="h2" id="view-title-referrals">Урилгын хөтөлбөр</h1>
+        </div>
+      </header>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Тохиргоо ба кодууд</h2>
+            <p><strong>Зөвхөн хүргэгдсэн захиалга шимтгэл төрүүлнэ.</strong> Төлбөр нь зөвшөөрөгдсөн ч хүргэгдээгүй бол тооцохгүй.</p>
+          </div>
+        </div>
 
         <div class="field">
           <label class="checkbox-row">
@@ -494,12 +493,107 @@
         <p class="hint">Хувийг хоосон орхивол дээрх ерөнхий тохиргоог дагана. Ашиглах тоог 0 болговол хязгааргүй.</p>
         <div class="editable-list" id="referral-codes-list"></div>
         <p id="referral-codes-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
+      </section>
+    </section>
 
-    <details class="stub-toggle">
-      <summary>Аудит бүртгэл</summary>
-      <div class="details-body">
+    <section class="admin-view" data-view="group" aria-labelledby="view-title-group" hidden>
+      <header class="admin-heading">
+        <div>
+          <h1 class="h2" id="view-title-group">Групп ба bot</h1>
+          <p class="admin-heading-sub">Автомат payout-ын тохиргоо.</p>
+        </div>
+      </header>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Групп ба bot аккаунт</h2>
+          </div>
+        </div>
+        <div class="field">
+          <label for="group-id-input">Группын ID</label>
+          <input id="group-id-input" type="text" inputmode="numeric" placeholder="Жишээ: 1234567">
+          <p class="hint" id="group-name-status">Тохируулагдаагүй байна.</p>
+        </div>
+        <button class="btn" id="save-group-btn" type="button">Групп хадгалах</button>
+        <p id="group-result" class="notice" role="status" aria-live="polite" hidden></p>
+
+        <div class="field field-spaced">
+          <label>Bot аккаунт</label>
+          <p class="hint" id="bot-status">Холбогдоогүй байна.</p>
+        </div>
+        <div class="field">
+          <label for="bot-cookie-input">Bot-ийн .ROBLOSECURITY cookie</label>
+          <input id="bot-cookie-input" type="password" autocomplete="off" placeholder="Шинэ bot холбоход л оруулна">
+          <p class="hint">Bot нь группын админ эрхтэй байх ёстой.</p>
+        </div>
+        <div class="action-buttons">
+          <button class="btn" id="connect-bot-btn" type="button">Bot холбох</button>
+          <button class="btn btn-danger" id="disconnect-bot-btn" type="button">Bot салгах</button>
+        </div>
+        <p id="bot-result" class="notice" role="status" aria-live="polite" hidden></p>
+
+        <div class="field field-spaced">
+          <label>Bot-ийн 2FA</label>
+          <p class="hint" id="bot-2fa-status">Тохируулаагүй байна.</p>
+        </div>
+        <div class="field">
+          <label for="bot-totp-input">Authenticator секрет (base32)</label>
+          <input id="bot-totp-input" type="password" autocomplete="off" placeholder="Жишээ: JBSWY3DPEHPK3PXP">
+          <p class="hint">
+            Roblox дээр 2FA тохируулахдаа QR-ийн доор гардаг түлхүүр. Payout автоматаар явдаг тул
+            кодыг сервер өөрөө үүсгэнэ. Энэ түлхүүр хадгалагдсанаар өгөгдлийн сан рүү нэвтэрсэн
+            хүн bot-ийн 2FA-г давж чадна гэдгийг анхаарна уу.
+          </p>
+        </div>
+        <div class="action-buttons">
+          <button class="btn" id="save-bot-2fa-btn" type="button">2FA секрет хадгалах</button>
+          <button class="btn btn-danger" id="clear-bot-2fa-btn" type="button">2FA секрет устгах</button>
+        </div>
+        <p id="bot-2fa-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Группын гишүүнчлэл</h2>
+            <p>"Тэмдэглэсэн" = анх шалгахад аль хэдийн гишүүн байсан, хугацаа тэр өдрөөс эхэлсэн.</p>
+          </div>
+        </div>
+        <div class="editable-list" id="memberships-list"></div>
+        <p id="memberships-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
+    </section>
+
+    <section class="admin-view" data-view="users" aria-labelledby="view-title-users" hidden>
+      <header class="admin-heading">
+        <div>
+          <h1 class="h2" id="view-title-users">Хэрэглэгчид</h1>
+        </div>
+      </header>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Утасны холболт</h2>
+            <p>Нэг аккаунт — нэг дугаар. Утсаа сольсон хэрэглэгчид л салгана.</p>
+          </div>
+        </div>
+        <div class="editable-list" id="phone-links-list"></div>
+        <p id="phone-links-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
+    </section>
+
+    <section class="admin-view" data-view="audit" aria-labelledby="view-title-audit" hidden>
+      <header class="admin-heading">
+        <div>
+          <h1 class="h2" id="view-title-audit">Аудит бүртгэл</h1>
+          <p class="admin-heading-sub">Хэн, хэзээ, юу хийсэн.</p>
+        </div>
+      </header>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Бүртгэл</h2>
+          </div>
+        </div>
         <div class="field">
           <label for="audit-filter">Үйлдлээр шүүх</label>
           <select id="audit-filter">
@@ -516,10 +610,38 @@
         </div>
         <div class="editable-list" id="audit-list"></div>
         <p id="audit-result" class="notice" role="status" aria-live="polite" hidden></p>
-      </div>
-    </details>
+      </section>
+    </section>
 
-  </main>
+    <section class="admin-view" data-view="account" aria-labelledby="view-title-account" hidden>
+      <header class="admin-heading">
+        <div>
+          <h1 class="h2" id="view-title-account">Аккаунт</h1>
+        </div>
+      </header>
+      <section class="panel admin-card">
+        <div class="panel-head">
+          <div>
+            <h2 class="h3">Нууц үг солих</h2>
+          </div>
+        </div>
+        <form id="password-form">
+          <div class="field">
+            <label for="current-password">Одоогийн нууц үг</label>
+            <input id="current-password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="field">
+            <label for="new-password">Шинэ нууц үг</label>
+            <input id="new-password" type="password" autocomplete="new-password" minlength="12" required>
+            <p class="hint">Хамгийн багадаа 12 тэмдэгт.</p>
+          </div>
+          <button class="btn" type="submit">Нууц үг шинэчлэх</button>
+        </form>
+        <p id="password-result" class="notice" role="status" aria-live="polite" hidden></p>
+      </section>
+    </section>
+    </main>
+  </div>
 
   <!-- Replaces window.prompt/confirm. Those rendered unstyled OS chrome that
        could neither validate input nor explain a consequence, and blocked the

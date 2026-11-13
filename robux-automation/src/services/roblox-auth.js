@@ -9,7 +9,8 @@ const TOKEN_RESOURCES_URL = 'https://apis.roblox.com/oauth/v1/token/resources';
 const GAME_PASSES_URL = 'https://apis.roblox.com/game-passes/v1/universes';
 const INVENTORY_URL = 'https://apis.roblox.com/cloud/v2/users';
 const UNIVERSES_URL = 'https://games.roblox.com/v1/games';
-const GAME_PASS_PRODUCT_URL = 'https://apis.roblox.com/game-passes/v1/game-passes';
+const OPEN_CLOUD_UNIVERSES_URL = 'https://apis.roblox.com/cloud/v2/universes';
+const GAME_PASS_PRODUCT_URL ='https://apis.roblox.com/game-passes/v1/game-passes';
 
 class RobloxAuth {
   static getOAuthConfig(redirectUri) {
@@ -45,7 +46,9 @@ class RobloxAuth {
     authorizationUrl.search = new URLSearchParams({
       client_id: config.clientId,
       redirect_uri: config.redirectUri,
-      scope: 'openid profile game-pass:write',
+      // universe:write is an experiment: it is only used to flip the buyer's
+      // experience to Public once it is rated (see setUniversePublic).
+      scope: 'openid profile game-pass:write universe:write',
       response_type: 'code',
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
@@ -204,6 +207,55 @@ class RobloxAuth {
       sellerId: Number(info.Creator?.Id),
       isForSale: Boolean(info.IsForSale)
     };
+  }
+
+  // The Open Cloud Universe resource: visibility and ageRating are what the
+  // Game Pass route is gated on (see services/experience-readiness.js).
+  //
+  // Asked with the buyer's own token first — Get Universe needs no scope, and
+  // the token already covers this universe. The seller's API key is the
+  // fallback for when the buyer's token has expired mid-setup; whether it can
+  // read a universe it does not own is Roblox's call, and a refusal there just
+  // surfaces as "could not check".
+  static async getUniverse(universeId, accessToken) {
+    const url = `${OPEN_CLOUD_UNIVERSES_URL}/${encodeURIComponent(universeId)}`;
+    const attempts = [];
+    if (accessToken) attempts.push({ Authorization: `Bearer ${accessToken}` });
+    if (process.env.ROBLOX_OPEN_CLOUD_API_KEY) {
+      attempts.push({ 'x-api-key': process.env.ROBLOX_OPEN_CLOUD_API_KEY });
+    }
+    if (!attempts.length) throw new Error('No credential to read the universe with.');
+
+    let lastError;
+    for (const headers of attempts) {
+      try {
+        const response = await axios.get(url, { headers, timeout: 15000 });
+        return response.data || {};
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+
+  // EXPERIMENT: asks Roblox to make the buyer's experience Public through
+  // Open Cloud Update Universe. The docs do not say whether `visibility` is
+  // writable, so whatever Roblox answers is returned verbatim to the caller
+  // for logging — a refusal here is an expected outcome, not a bug.
+  //
+  // Only the buyer's own token is used, never the seller's API key: this
+  // changes someone else's experience and must carry their consent.
+  static async setUniversePublic(universeId, accessToken) {
+    const response = await axios.patch(
+      `${OPEN_CLOUD_UNIVERSES_URL}/${encodeURIComponent(universeId)}`,
+      { visibility: 'PUBLIC' },
+      {
+        params: { updateMask: 'visibility' },
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        timeout: 15000
+      }
+    );
+    return response.data || {};
   }
 
   static async verifySellerOwnsGamePass(gamePassId) {

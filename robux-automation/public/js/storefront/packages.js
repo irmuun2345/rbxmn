@@ -5,61 +5,42 @@
 // typed amount instead, so this is only the Buy tab's picker — see
 // gift-cards.js.
 //
+// The picker draws the same ladder the landing page carries. It used to be a
+// native <select>, chosen because "pick exactly one of these" is what a
+// select is for — and that was right while the catalogue was a list of
+// options nobody had seen before. It is not right now: a visitor arrives here
+// having already read the prices as a ladder on the way in, and handing them
+// a collapsed dropdown at the moment of purchase hides the comparison they
+// made their decision with. Same rows, same order, same markup builder —
+// see topup.js — so the two surfaces cannot drift apart.
+//
 // Prices rendered here are display-only. The server prices the order from its
 // own package row when one is actually created, so a tampered price in the
 // DOM buys nothing.
 
 import { $, renderLoading, renderEmpty, renderError } from '../common/dom.js';
 import { request } from '../common/api.js';
-import { formatMnt, formatNumber, animateNumber } from '../common/format.js';
+import { formatMnt, animateNumber } from '../common/format.js';
 import { state } from './state.js';
+import {
+  ladderMarkup, bestValueId, renderTopupLadder, showTopupLoading, showTopupError, takeIntent
+} from './topup.js';
 
-// The one picker a signed-in customer chooses from, and the only place
-// package prices are shown at all. The landing page no longer carries a
-// public price list: what a customer actually pays depends on their loyalty
-// level, so the one list a stranger could be shown is the one nobody is
-// charged.
 const PICKER_ID = 'order-package-picker';
 
+// What this customer actually pays: the catalogue price less whatever their
+// loyalty level discounts. The landing ladder shows the undiscounted figure,
+// which is why the panel there carries a footnote saying so.
 function displayPrice(pkg) {
   return Math.round(pkg.effectivePriceMnt * (1 - state.levelDiscountPercent / 100));
 }
 
-// What 100 Robux costs inside this package. No longer printed on the tile —
-// it was a third number under two others and read as clutter. It still
-// decides which package is flagged as the best value, which is the useful
-// half of it: the comparison without the arithmetic on screen.
 const unitPrice = (pkg, price) => Math.round((price / pkg.robuxAmount) * 100);
 
-// Cheapest per Robux — the answer to "which one should I buy?". Computed
-// rather than flagged in admin so it can never disagree with the prices
-// beside it.
-//
-// A tie wins nothing. With no discounts configured every package costs the
-// same per Robux, and crowning whichever one sorted first would be advice
-// the prices do not support.
-function bestValueId(packages) {
-  if (packages.length < 2) return null;
-  const rates = packages.map((pkg) => unitPrice(pkg, pkg.effectivePriceMnt));
-  const cheapest = Math.min(...rates);
-  if (rates.filter((rate) => rate === cheapest).length > 1) return null;
-  return packages[rates.indexOf(cheapest)].id;
-}
-
-// A native <select>, not a custom listbox. It is the platform control for
-// "pick exactly one of these", which means the keyboard handling, the
-// type-ahead, the touch pickers on iOS and Android and the screen-reader
-// announcement all arrive for free and correct — where the grid it replaced
-// had to hand-roll roving tabindex and arrow keys to get halfway there.
-//
-// Each option has to carry on one line what a tile carried in four corners,
-// so it reads amount, then price, then the discount if there is one. What
-// will not fit — the per-100 rate, the best-value flag — moves to the summary
-// under the control, where it describes the current choice instead of every
-// choice at once.
 export function refreshPackagePicker() {
   const container = $(PICKER_ID);
   if (!container) return;
+
   if (!state.packages.length) {
     renderEmpty(container, {
       icon: '◇',
@@ -70,46 +51,50 @@ export function refreshPackagePicker() {
     return;
   }
 
-  const best = bestValueId(state.packages);
-  const options = state.packages.map((pkg) => {
-    const price = displayPrice(pkg);
-    const parts = [`${formatNumber(pkg.robuxAmount)} Robux`, formatMnt(price)];
-    if (pkg.discountPercent > 0) parts.push(`-${Number(pkg.discountPercent)}%`);
-    // The best-value flag rides in the option itself, not in the summary
-    // below. In the summary it would only appear once you had already picked
-    // the right package, which is advice arriving after the decision — the
-    // tile grid showed it on all options at once, and that is the half of it
-    // worth keeping.
-    if (pkg.id === best) parts.push('Ашигтай');
-    return `<option value="${Number(pkg.id)}"${pkg.id === state.selectedOrderPackageId ? ' selected' : ''}>`
-      + `${parts.join('  ·  ')}</option>`;
-  }).join('');
-
   const selected = state.packages.find((pkg) => pkg.id === state.selectedOrderPackageId);
   container.innerHTML = `
-    <select class="package-select" id="order-package-select">${options}</select>
+    <div class="topup-ladder">
+      ${ladderMarkup(state.packages, {
+        pricer: displayPrice,
+        pickedId: state.selectedOrderPackageId
+      })}
+    </div>
     <p class="package-summary" id="order-package-summary">${summaryFor(selected)}</p>`;
 
   updateOrderTotalDisplay();
 }
 
-// The fact the tiles showed that an <option> has no room for. The unit rate
-// is what makes a bigger package legible as better value rather than merely
-// more expensive, and that argument is worth keeping on screen — but only for
-// the package actually chosen, which is what a summary line is for.
+// The fact a row has no room for: what 100 Robux costs inside the package
+// actually chosen. It is what makes a bigger package legible as better value
+// rather than merely more expensive, and it belongs to the selection rather
+// than to the catalogue — which is why it is a line under the ladder and not
+// a third column inside it.
 function summaryFor(pkg) {
   if (!pkg) return '';
   return `100 Robux тутам ${formatMnt(unitPrice(pkg, displayPrice(pkg)))}`;
 }
 
 function selectPackage(id) {
+  if (!state.packages.some((pkg) => pkg.id === id)) return;
   state.selectedOrderPackageId = id;
-  // Only the summary and the total change — re-rendering the <select> itself
-  // while it is open or focused would close the native picker and drop focus.
+
+  // Only the pressed row, its former neighbour and the summary change. A full
+  // re-render would rebuild the ladder under the pointer that just pressed it
+  // and throw away keyboard focus with it.
+  const container = $(PICKER_ID);
+  const best = bestValueId(state.packages);
+  container?.querySelectorAll('.topup-row').forEach((row) => {
+    const picked = Number(row.dataset.packageId) === id;
+    row.classList.toggle('is-picked', picked);
+    row.classList.toggle('is-best', Number(row.dataset.packageId) === best);
+    row.setAttribute('aria-pressed', String(picked));
+  });
+
   const summary = $('order-package-summary');
   if (summary) {
     summary.textContent = summaryFor(state.packages.find((pkg) => pkg.id === id));
   }
+
   updateOrderTotalDisplay();
 }
 
@@ -119,16 +104,56 @@ export function updateOrderTotalDisplay() {
   animateNumber($('order-total'), displayPrice(pkg), formatMnt);
 }
 
+/**
+ * Honour whatever the visitor pressed on the landing page before they had an
+ * account to press it with.
+ *
+ * A package intent names a row outright. A manual intent named an amount the
+ * catalogue does not sell, so it resolves to the nearest package that is at
+ * least as large — rounding *down* would hand someone less Robux than the
+ * figure they typed and confirmed, which is the one outcome worth avoiding.
+ * Falling back to the largest package when they asked for more than is sold
+ * keeps the tab from opening on an empty selection.
+ */
+function resolveIntent(intent) {
+  if (!intent || !state.packages.length) return null;
+
+  if (intent.kind === 'package') {
+    return state.packages.some((pkg) => pkg.id === intent.packageId) ? intent.packageId : null;
+  }
+
+  if (intent.kind !== 'manual') return null;
+
+  const wanted = intent.unit === 'robux'
+    ? intent.value
+    : (state.pricePer100 ? (intent.value / state.pricePer100) * 100 : 0);
+  if (!wanted) return null;
+
+  const sorted = [...state.packages].sort((a, b) => a.robuxAmount - b.robuxAmount);
+  const atLeast = sorted.find((pkg) => pkg.robuxAmount >= wanted);
+  return (atLeast || sorted[sorted.length - 1]).id;
+}
+
 export async function loadPackages() {
   if (!state.packages.length) renderLoading($(PICKER_ID), { rows: 1 });
+  showTopupLoading();
 
   try {
     const data = await request('/packages');
     state.packages = data.packages;
-    if (!state.packages.some((pkg) => pkg.id === state.selectedOrderPackageId)) {
+
+    // Whatever was pressed on the way in wins over the default, and it is
+    // consumed as it is read — a stale intent should not reassert itself the
+    // next time the catalogue refreshes.
+    const intended = resolveIntent(takeIntent());
+    if (intended) {
+      state.selectedOrderPackageId = intended;
+    } else if (!state.packages.some((pkg) => pkg.id === state.selectedOrderPackageId)) {
       state.selectedOrderPackageId = state.packages[Math.min(1, state.packages.length - 1)]?.id ?? null;
     }
+
     refreshPackagePicker();
+    renderTopupLadder();
   } catch {
     renderError($(PICKER_ID), {
       title: 'Багцууд ачаалагдсангүй',
@@ -136,14 +161,13 @@ export async function loadPackages() {
       retry: loadPackages,
       inline: true
     });
+    showTopupError(loadPackages);
   }
 }
 
 /**
- * The rate per 100 Robux. Nothing renders it on its own any more — the
- * workspace header used to carry it as a pill, which quoted a headline price
- * nobody is actually charged — but the gift card quote is computed from it,
- * so it is still fetched and parked on the state.
+ * The rate per 100 Robux. The gift card quote and the landing page's manual
+ * amount converter are both computed from it; nothing renders it on its own.
  */
 export async function loadPricing() {
   try {
@@ -154,11 +178,13 @@ export async function loadPricing() {
   }
 }
 
-// One delegated `change`, and that is the whole interaction model — the
-// arrow-key handling the grid needed is the browser's job now.
+// One delegated `click` on the picker, and that is the whole interaction
+// model. The rows are real <button>s, so Enter, Space and the focus ring all
+// arrive from the platform exactly as they did from the <select>.
 export function initPackages() {
-  document.addEventListener('change', (event) => {
-    if (!event.target.matches('.package-select')) return;
-    selectPackage(Number(event.target.value));
+  $(PICKER_ID)?.addEventListener('click', (event) => {
+    const row = event.target.closest('.topup-row');
+    if (!row) return;
+    selectPackage(Number(row.dataset.packageId));
   });
 }

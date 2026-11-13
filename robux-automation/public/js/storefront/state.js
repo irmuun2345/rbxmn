@@ -16,15 +16,27 @@ export const state = {
   // Set once the session cookie is known to be good.
   isAuthenticated: false,
   phoneLinked: false,
+  // The linked Roblox username. Only used to label the Messenger hand-off.
+  username: '',
 
-  // Fulfilment: 'group' (bot pays out from group funds) or 'gamepass'.
+  // Fulfilment: 'group' (bot pays out from group funds), 'gamepass', or
+  // 'manual' (an admin delivers by hand after a Messenger chat).
   // Chosen by the server, never by the buyer — see fulfilment.js.
-  method: 'group',
+  // Null until /order/eligibility answers.
+  method: null,
+  // Our Messenger page, as the server reports it. Null until known, and
+  // null for good if it is not configured.
+  messengerUrl: null,
   authorizedUniverseIds: [],
   // True when the server reports the Game Pass route as closed platform-side,
   // which is a different situation from a buyer who granted no experience:
   // nothing the buyer does reopens it.
   gamepassDisabled: false,
+  // Per granted experience: is it public and rated high enough to carry a
+  // pass? Keyed by universe id, filled from /gamepass/readiness. Advisory —
+  // the server re-checks at order time.
+  experienceReadiness: {},
+  requiredAge: 16,
 
   // Catalogue, and which entry the Buy tab's picker has selected. There is
   // no gift equivalent: a gift card takes a typed amount, not a package.

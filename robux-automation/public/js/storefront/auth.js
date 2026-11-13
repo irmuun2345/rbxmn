@@ -22,6 +22,7 @@ import { selectTab } from './tabs.js';
 // Everything the page can only fetch once a session exists.
 export function revealAuthenticated(username, universeIds = [], { land = true } = {}) {
   state.isAuthenticated = true;
+  state.username = username || '';
   // loadFulfillmentRoute re-states this from the server along with whether a
   // choice is even needed; this is just the earliest we know.
   state.authorizedUniverseIds = universeIds.map(String);
@@ -179,6 +180,11 @@ function initLogout() {
 
       $('gamepass-universe').replaceChildren();
       $('gamepass-universe-field').hidden = true;
+      // The previous account's experiences, and whether they were ready.
+      state.authorizedUniverseIds = [];
+      state.experienceReadiness = {};
+      $('gamepass-setup').hidden = true;
+      $('gamepass-setup-result').hidden = true;
       // Logged out, so there's no account to compute a route for.
       setMethod('gamepass');
       $('auth-state').textContent = 'Холбогдоогүй';

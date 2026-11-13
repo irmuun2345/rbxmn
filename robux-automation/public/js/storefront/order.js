@@ -8,11 +8,12 @@ import { $, showResult, setLoading } from '../common/dom.js';
 import { request, jsonBody } from '../common/api.js';
 import { formatMnt, formatNumber } from '../common/format.js';
 import { state } from './state.js';
-import { orderBlockedReason } from './fulfilment.js';
+import { orderBlockedReason, loadExperienceReadiness } from './fulfilment.js';
 import { loadProfile, renderLevel } from './profile.js';
 import { renderBankAccounts } from './bank-accounts.js';
 import { statusView, CAN_UPLOAD_RECEIPT } from './order-status-view.js';
 import { selectTab } from './tabs.js';
+import { reserveMessengerTab, renderMessengerHandoff, messengerLink, messengerText } from './messenger.js';
 
 // Set by main.js once orders.js is initialised. A plain import would be a
 // cycle — orders.js already imports resumeOrder from here — and this module
@@ -73,6 +74,13 @@ function showPaymentPanel(data) {
   $('payment-status').textContent = view.label;
 
   renderBonusNote(data);
+  renderMessengerHandoff({
+    deliveryMethod: data.deliveryMethod,
+    messengerUrl: data.messengerUrl,
+    reference: data.paymentReference,
+    robux: data.deliveredRobux || data.requestedRobux,
+    amountMnt: data.amountMnt
+  });
 
   setStepper(view.step);
   // A resumed order may already be past the upload stage.
@@ -100,6 +108,7 @@ export async function resumeOrder(row) {
       orderId: row.id,
       banks: accounts,
       paymentReference: row.payment_reference,
+      deliveryMethod: row.delivery_method,
       amountMnt: row.amount_mnt,
       status: row.status,
       bonusPercent: row.bonus_percent,
@@ -243,8 +252,13 @@ export function initOrder() {
 
     let url;
     const body = { packageId: state.selectedOrderPackageId };
+    // Taken before the request, while this click still counts as a gesture —
+    // see reserveMessengerTab.
+    const messengerTab = state.method === 'manual' ? reserveMessengerTab() : null;
     if (state.method === 'group') {
       url = '/create-group-order';
+    } else if (state.method === 'manual') {
+      url = '/create-manual-order';
     } else {
       // Name and description are the server's to generate. universeId is only
       // sent when the buyer actually had a choice to make.
@@ -259,11 +273,28 @@ export function initOrder() {
         jsonBody('POST', body),
         'Захиалга үүсгэж чадсангүй. Мэдээллээ шалгана уу.'
       );
+      // The code goes to Messenger right away, before the buyer has to find
+      // the button. An order that turned out not to be manual (an older one
+      // of theirs still in flight) gives the tab back.
+      const order = {
+        reference: data.paymentReference,
+        robux: data.deliveredRobux || data.requestedRobux,
+        amountMnt: data.amountMnt
+      };
+      const link = data.deliveryMethod === 'manual' ? messengerLink(data.messengerUrl, order) : null;
+      if (messengerTab) {
+        if (link) messengerTab.go(link, messengerText(order));
+        else messengerTab.cancel();
+      }
       showPaymentPanel(data);
       loadProfile();
       refreshHistory();
     } catch (error) {
+      messengerTab?.cancel();
       showResult($('create-result'), error.message, true);
+      // Most likely the experience changed on Roblox since we last looked;
+      // redraw the checklist from what Roblox says now.
+      if (state.method === 'gamepass') loadExperienceReadiness();
     } finally {
       setLoading(button, false);
     }
