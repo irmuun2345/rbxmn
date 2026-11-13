@@ -1,0 +1,30 @@
+# CLI deploys run from this folder (the project's Root Directory is
+# robux-automation/), and Vercel only reads .vercelignore at the upload root.
+# Mirrors robux-automation/.vercelignore — keep the two in sync.
+
+.git/
+node_modules/
+
+# Secrets belong in Vercel's environment variables, never in the bundle.
+**/config/.env
+.env
+*.pem
+*.key
+
+# Old SQLite databases — real customer records.
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Customers' bank documents.
+uploads/
+
+# Not needed at runtime.
+tests/
+*.log
+.playwright-cli/
+.claude/
+.agents/

@@ -400,8 +400,7 @@ async function runGamePassOrderChecks() {
   };
   const notReadyCases = [
     [{ visibility: 'PRIVATE', ageRating: 'AGE_RATING_17_PLUS' }, ['public']],
-    [{ visibility: 'PUBLIC', ageRating: 'AGE_RATING_13_PLUS' }, ['questionnaire']],
-    [{ visibility: 'PRIVATE', ageRating: 'AGE_RATING_UNSPECIFIED' }, ['questionnaire', 'public']]
+    [{ visibility: 'PRIVATE', ageRating: 'AGE_RATING_UNSPECIFIED' }, ['public']]
   ];
   for (const [universe, missing] of notReadyCases) {
     universeState = universe;
@@ -422,7 +421,12 @@ async function runGamePassOrderChecks() {
   assert.equal(unknown.statusCode, 502);
   assert.equal(apiRequest, null);
 
-  // A 16+ bracket, if Roblox reports one, is accepted as-is.
+  // Public is enough — a low or missing age rating no longer blocks.
+  universeState = { visibility: 'PUBLIC', ageRating: 'AGE_RATING_13_PLUS' };
+  const thirteen = createResponse();
+  await controller.createGamePass({ body: { packageId: 3 }, session: readySession }, thirteen);
+  assert.equal(thirteen.statusCode, 200);
+
   universeState = { visibility: 'PUBLIC', ageRating: 'AGE_RATING_16_PLUS' };
   const sixteen = createResponse();
   await controller.createGamePass({ body: { packageId: 3 }, session: readySession }, sixteen);
@@ -438,8 +442,8 @@ async function runGamePassOrderChecks() {
   assert.equal(listResponse.body.experiences.length, 1);
   assert.equal(listResponse.body.experiences[0].ready, true);
 
-  // make-public (experiment): refuses before the questionnaire, never PATCHes
-  // a universe outside the grant, and judges success by re-reading Roblox.
+  // make-public (experiment): never PATCHes a universe outside the grant, and
+  // judges success by re-reading Roblox.
   let patched = 0;
   oauth.setUniversePublic = async () => {
     patched += 1;
@@ -450,13 +454,6 @@ async function runGamePassOrderChecks() {
   const outsideGrant = createResponse();
   await controller.makeExperiencePublic({ body: { universeId: '999' }, session: readySession }, outsideGrant);
   assert.equal(outsideGrant.statusCode, 403);
-
-  universeState = { visibility: 'PRIVATE', ageRating: 'AGE_RATING_UNSPECIFIED' };
-  const unrated = createResponse();
-  await controller.makeExperiencePublic({ body: { universeId: '3828411582' }, session: readySession }, unrated);
-  assert.equal(unrated.statusCode, 409);
-  assert.equal(unrated.body.reason, 'questionnaire_required');
-  assert.equal(patched, 0);
 
   universeState = { visibility: 'PRIVATE', ageRating: 'AGE_RATING_17_PLUS' };
   const flipped = createResponse();

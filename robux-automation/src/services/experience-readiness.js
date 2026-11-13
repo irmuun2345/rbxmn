@@ -1,11 +1,10 @@
 // Whether a buyer's experience can carry a Game Pass that we are able to buy.
 //
 // A pass is only purchasable from outside its experience when that experience
-// is public and age-rated at or above a minimum — 16+ today. Both are settings
-// only the owner can change: the rating comes out of Roblox's Content Maturity
-// & Compliance questionnaire, and an unrated experience cannot be made public
-// at all. Neither is exposed to OAuth apps, so the buyer does the two steps on
-// Creator Dashboard and we verify the result here, from Roblox, every time.
+// is public. That is the only requirement checked; the age rating is read and
+// reported for information but does not block an order. The buyer makes the
+// experience public on Creator Dashboard and we verify it here, from Roblox,
+// every time.
 //
 // That verification is the gate, not the storefront's checklist. A pass created
 // on a private or under-rated experience is a paid order nobody can deliver,
@@ -45,14 +44,11 @@ function evaluateReadiness(universe) {
     rated,
     minimumAge,
     requiredAge,
-    // What is still missing. On Creator Dashboard both are done in one go —
-    // choosing Public under Manage Audience brings up the questionnaire —
-    // but Roblox reports them separately, so they are checked separately.
-    missing: [
-      !ageOk && 'questionnaire',
-      !isPublic && 'public'
-    ].filter(Boolean),
-    ready: isPublic && ageOk
+    ageOk,
+    // Only visibility gates an order. The age rating is still read and
+    // reported, but is no longer required.
+    missing: [!isPublic && 'public'].filter(Boolean),
+    ready: isPublic
   };
 }
 
@@ -60,14 +56,7 @@ function evaluateReadiness(universe) {
 // the delivery route.
 function readinessMessage(readiness) {
   if (readiness.ready) return null;
-  const parts = [];
-  if (readiness.missing.includes('public')) parts.push('тоглоомоо Public болгох');
-  if (readiness.missing.includes('questionnaire')) {
-    parts.push(readiness.rated
-      ? `насны ангиллыг ${readiness.minimumAge}+-оос ${readiness.requiredAge}+ болгох`
-      : `асуулга бөглөж ${readiness.requiredAge}+ ангилал авах`);
-  }
-  return `Захиалга үүсгэхийн өмнө Creator Dashboard → Manage Audience дээр ${parts.join(', ')} хэрэгтэй.`;
+  return 'Захиалга үүсгэхийн өмнө Creator Dashboard → Manage Audience дээр тоглоомоо Public болгох хэрэгтэй.';
 }
 
 module.exports = {

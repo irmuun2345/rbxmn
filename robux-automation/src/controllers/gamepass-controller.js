@@ -288,16 +288,6 @@ class GamePassController {
       return res.status(502).json({ success: false, error: 'Тоглоомын тохиргоог Roblox-оос шалгаж чадсангүй. Дахин оролдоно уу.' });
     }
 
-    // Roblox will not publish an unrated experience, and making a 13+ one
-    // public would not make it usable to us either. Questionnaire first.
-    if (before.missing.includes('questionnaire')) {
-      return res.status(409).json({
-        success: false,
-        error: 'Эхлээд асуулгаа бөглөж насны ангилал авна уу.',
-        reason: 'questionnaire_required',
-        readiness: GamePassController.publicReadiness(universeId, before)
-      });
-    }
     if (before.isPublic) {
       return res.json({ success: true, readiness: GamePassController.publicReadiness(universeId, before) });
     }

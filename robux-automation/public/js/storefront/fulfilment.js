@@ -98,23 +98,13 @@ function renderSetup() {
   $('gamepass-setup-link').href =
     `https://create.roblox.com/dashboard/creations/experiences/${encodeURIComponent(universeId)}/overview`;
 
-  // Offered only once the rating is in place and the experience is still
-  // private — the one moment the automatic switch can do anything.
-  $('gamepass-make-public').hidden = !readiness || Boolean(readiness.error)
-    || readiness.isPublic || readiness.missing.includes('questionnaire');
+  // Offered while the experience is still private.
+  $('gamepass-make-public').hidden = !readiness || Boolean(readiness.error) || readiness.isPublic;
 
   if (!readiness || readiness.error) {
-    renderStep('setup-step-questionnaire', false, '');
     renderStep('setup-step-public', false, '');
     return;
   }
-  renderStep(
-    'setup-step-questionnaire',
-    !readiness.missing.includes('questionnaire'),
-    readiness.rated
-      ? `Одоогийн ангилал: ${readiness.minimumAge}+. Manage Audience дээр асуулгаа дахин бөглөнө үү.`
-      : 'Асуулга бөглөгдөөгүй байна.'
-  );
   renderStep('setup-step-public', readiness.isPublic, 'Тоглоом одоогоор Private байна.');
 }
 

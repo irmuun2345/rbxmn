@@ -154,33 +154,22 @@
                 </div>
                 <p class="notice error" id="gamepass-blocked" role="status" hidden></p>
 
-                <!-- Two settings only the owner can change on Roblox. The
-                     server re-checks both before any pass is created; this
+                <!-- The one setting only the owner can change on Roblox. The
+                     server re-checks it before any pass is created; this
                      list only shows the buyer where they stand. -->
                 <div class="gamepass-setup" id="gamepass-setup" hidden>
                   <h3 class="h3">Тоглоомоо бэлдэх</h3>
-                  <p class="muted">Robux хүлээн авахын тулд таны тоглоом <strong>Public</strong> бөгөөд <strong id="gamepass-setup-age">16+</strong> насны ангилалтай байх ёстой.</p>
-                  <!-- On Roblox both happen in one place: choosing Public
-                       under Manage Audience is what brings up the
-                       questionnaire. Two checks are kept because Roblox
-                       reports them separately, and either can be missing. -->
-                  <p class="muted">Creator Dashboard дээр тоглоомоо сонгоод <em>Manage Audience</em> → <em>Public</em> сонгоно. Асуулга гарч ирэхэд хариулж <em>Submit</em> дарна — ангилал <span data-required-age>16+</span> гарах ёстой. Дараа нь «Шалгах» дарна.</p>
+                  <p class="muted">Robux хүлээн авахын тулд таны тоглоом <strong>Public</strong> байх ёстой.<span id="gamepass-setup-age" hidden></span></p>
+                  <p class="muted">Creator Dashboard дээр тоглоомоо сонгоод <em>Manage Audience</em> → <em>Public</em> сонгоно. Дараа нь «Шалгах» дарна.</p>
                   <ol class="setup-steps">
                     <li id="setup-step-public" data-done="false">
                       <span class="setup-mark" aria-hidden="true"></span>
                       <div>
                         <strong>Public</strong>
                         <p class="setup-status" data-status></p>
-                        <!-- Experiment (universe:write): only shown for an
-                             experience that is already rated but private. -->
+                        <!-- Experiment (universe:write): only shown while the
+                             experience is private. -->
                         <button class="btn btn-ghost btn-sm" type="button" id="gamepass-make-public" hidden>Public болгох</button>
-                      </div>
-                    </li>
-                    <li id="setup-step-questionnaire" data-done="false">
-                      <span class="setup-mark" aria-hidden="true"></span>
-                      <div>
-                        <strong>Насны ангилал <span data-required-age>16+</span></strong>
-                        <p class="setup-status" data-status></p>
                       </div>
                     </li>
                   </ol>
