@@ -111,7 +111,9 @@ function renderSetup() {
   renderStep(
     'setup-step-questionnaire',
     !readiness.missing.includes('questionnaire'),
-    readiness.rated ? `Одоогийн ангилал: ${readiness.minimumAge}+` : 'Асуулга бөглөгдөөгүй байна.'
+    readiness.rated
+      ? `Одоогийн ангилал: ${readiness.minimumAge}+. Manage Audience дээр асуулгаа дахин бөглөнө үү.`
+      : 'Асуулга бөглөгдөөгүй байна.'
   );
   renderStep('setup-step-public', readiness.isPublic, 'Тоглоом одоогоор Private байна.');
 }

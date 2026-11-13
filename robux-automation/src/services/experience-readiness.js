@@ -45,8 +45,9 @@ function evaluateReadiness(universe) {
     rated,
     minimumAge,
     requiredAge,
-    // Steps the buyer still has to take, in the order Roblox lets them be
-    // taken: an experience has to be rated before it can be made public.
+    // What is still missing. On Creator Dashboard both are done in one go —
+    // choosing Public under Manage Audience brings up the questionnaire —
+    // but Roblox reports them separately, so they are checked separately.
     missing: [
       !ageOk && 'questionnaire',
       !isPublic && 'public'
@@ -60,13 +61,13 @@ function evaluateReadiness(universe) {
 function readinessMessage(readiness) {
   if (readiness.ready) return null;
   const parts = [];
+  if (readiness.missing.includes('public')) parts.push('тоглоомоо Public болгох');
   if (readiness.missing.includes('questionnaire')) {
     parts.push(readiness.rated
-      ? `тоглоомын насны ангилал ${readiness.minimumAge}+ байна, ${readiness.requiredAge}+ болгох хэрэгтэй`
-      : `тоглоомын асуулгыг бөглөж ${readiness.requiredAge}+ ангилал авах хэрэгтэй`);
+      ? `насны ангиллыг ${readiness.minimumAge}+-оос ${readiness.requiredAge}+ болгох`
+      : `асуулга бөглөж ${readiness.requiredAge}+ ангилал авах`);
   }
-  if (readiness.missing.includes('public')) parts.push('тоглоомоо Public болгох хэрэгтэй');
-  return `Захиалга үүсгэхийн өмнө ${parts.join(', ')}.`;
+  return `Захиалга үүсгэхийн өмнө Creator Dashboard → Manage Audience дээр ${parts.join(', ')} хэрэгтэй.`;
 }
 
 module.exports = {
